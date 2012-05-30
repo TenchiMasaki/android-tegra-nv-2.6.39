@@ -265,10 +265,9 @@ static struct alc5623_platform_data adam_alc5623_pdata = {
 	.jack_det_ctrl	= 0,
 	.avdd_mv		= 3300,	/* Analog vdd in millivolts */
 
-	.mic1bias_mv		= 2475,	/* MIC1 bias voltage */
-	.mic2bias_mv		= 2475,	/* MIC2 bias voltage */
-	.mic1boost_db		= 30,	/* MIC1 gain boost */
-	.mic2boost_db		= 30,	/* MIC2 gain boost */
+	.mic1bias_mv		= 2475,	/* MIC bias voltage */
+	.mic1boost_db		= 20,	/* MIC1 gain boost */
+	.mic2boost_db		= 20,	/* MIC2 gain boost */
 
 	.default_is_mic2 	= false,	/* Adam uses MIC1 as the default capture source */
 
@@ -289,12 +288,12 @@ static struct tegra_alc5623_platform_data adam_audio_pdata = {
 #ifndef USE_ORG_DAS	
 	.hifi_codec_datafmt = SND_SOC_DAIFMT_I2S,	/* HiFi codec data format */
 #ifdef ALC5624_IS_MASTER
-	.hifi_codec_master  = true,					/* If Hifi codec is master */
+	.hifi_codec_master  = true,			/* If Hifi codec is master */
 #else
-	.hifi_codec_master  = false,				/* If Hifi codec is master */
+	.hifi_codec_master  = false,			/* If Hifi codec is master */
 #endif
 	.bt_codec_datafmt   = SND_SOC_DAIFMT_DSP_A,	/* Bluetooth codec data format */
-	.bt_codec_master    = true,					/* If bt codec is master */
+	.bt_codec_master    = true,			/* If bt codec is master */
 #endif
 
 };
