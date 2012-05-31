@@ -71,11 +71,28 @@ static __initdata struct tegra_clk_init_table adam_clk_init_table[] = {
 	/* Master clock */
 	{ "sdmmc2",		"pll_p",		48000000,	false},		/* sdhci-tegra.1 */
 	{ "pwm",		"clk_m",		12000000,	true},		/* tegra-pwm.0 tegra-pwm.1 tegra-pwm.2 tegra-pwm.3*/
-        { "i2s1", 		"pll_a_out0",		2822400,	true}, /* i2s.0 */
-        { "i2s2",		"pll_a_out0",		11289600,	true}, /* i2s.1 */
 	{ "cdev1",		NULL,			0,		true},
 	{ "uartc",		"pll_p",		216000000,	false},    /* tegra_uart.2 uart.0 */
 	{ "uartd",		"pll_p",		216000000,	false},    /* tegra_uart.3 uart.3 */
+#ifdef ADAM_48KHZ_AUDIO
+	{ "pll_a",		"pll_p_out1",	 73728000,	true},		/* always on - audio clocks */
+	{ "pll_a_out0", 	"pll_a",	 12288000,	true},		/* always on - i2s audio */
+	{ "i2s1",    "pll_a_out0",    2822400,  false},    /* i2s.0 */
+	{ "i2s2",    "pll_a_out0",   12288000,  false},    /* i2s.1 */
+	{ "audio",		"pll_a_out0",	 0,	false},
+	{ "audio_2x",		"audio",	 0,	false},
+	{ "spdif_in",		"pll_p",	 36000000,	false},
+	{ "spdif_out",		"pll_a_out0",	  6144000,	false},
+#else
+	{ "pll_a",		"pll_p_out1",	 56448000,	true},		/* always on - audio clocks */
+	{ "pll_a_out0", 	"pll_a",	 11289600,	true},		/* always on - i2s audio */
+	{ "i2s1",    "pll_a_out0",    2822400,  false},    /* i2s.0 */
+	{ "i2s2",    "pll_a_out0",   11289600,  false},    /* i2s.1 */
+	{ "audio",		"pll_a_out0",	 0,	false},
+	{ "audio_2x",		"audio",	 0,	false},
+	{ "spdif_in",		"pll_p",	 36000000,	false},
+	{ "spdif_out",		"pll_a_out0",	  5644800,	false},
+#endif
 	{  NULL,		NULL,			0,		0},
 };
 
