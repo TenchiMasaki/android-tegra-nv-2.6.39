@@ -45,6 +45,13 @@ config REGULATOR_FIXED_VOLTAGE
 	  useful for systems which use a combination of software
 	  managed regulators and simple non-configurable regulators.
 
+config REGULATOR_VIRTUAL_ADJ_VOLTAGE
+	tristate "Virtual variable voltage regulator support"
+	help
+	  This driver provides support for virtual variable voltage 
+	  regulators, useful for drivers that need them, when there is
+	  no real need.
+	  
 config REGULATOR_VIRTUAL_CONSUMER
 	tristate "Virtual regulator consumer support"
 	help
@@ -330,10 +337,10 @@ config REGULATOR_TPS6524X
 	  port controller.
 
 config REGULATOR_TPS65910
-	tristate "TI TPS65910/TPS65911 Power Regulators"
+	tristate "TI TPS65910 Power Regulator"
 	depends on MFD_TPS65910
 	help
-	  This driver supports TPS65910/TPS65911 voltage regulator chips.
+	  This driver supports TPS65910 voltage regulator chips.
 
 config REGULATOR_TPS62360
 	tristate "TI TPS62360 Power Regulator"

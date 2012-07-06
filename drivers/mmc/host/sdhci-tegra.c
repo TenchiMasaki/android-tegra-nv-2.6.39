@@ -97,6 +97,9 @@ static struct tegra_sdhci_hw_ops tegra_3x_sdhci_ops = {
 
 struct tegra_sdhci_host {
 	bool	clk_enabled;
+	char	wp_gpio_name[32];
+	char	cd_gpio_name[32];
+	char	power_gpio_name[32];
 	struct regulator *vdd_io_reg;
 	struct regulator *vdd_slot_reg;
 	/* Pointer to the chip specific HW ops */
@@ -308,7 +311,7 @@ static irqreturn_t carddetect_irq(int irq, void *data)
 
 	plat = pdev->dev.platform_data;
 
-	tegra_host->card_present = (gpio_get_value(plat->cd_gpio) == 0);
+	tegra_host->card_present = (gpio_get_value(plat->cd_gpio) == plat->cd_gpio_active_high);
 
 	if (tegra_host->card_present) {
 		if (!tegra_host->is_rail_enabled) {
@@ -941,7 +944,8 @@ static int __devinit sdhci_tegra_probe(struct platform_device *pdev)
 #endif
 
 	if (gpio_is_valid(plat->power_gpio)) {
-		rc = gpio_request(plat->power_gpio, "sdhci_power");
+		snprintf(tegra_host->power_gpio_name,sizeof(tegra_host->power_gpio_name),"sdhci%d_power",pdev->id);
+		rc = gpio_request(plat->power_gpio, tegra_host->power_gpio_name);
 		if (rc) {
 			dev_err(mmc_dev(host->mmc),
 				"failed to allocate power gpio\n");
@@ -952,7 +956,8 @@ static int __devinit sdhci_tegra_probe(struct platform_device *pdev)
 	}
 
 	if (gpio_is_valid(plat->cd_gpio)) {
-		rc = gpio_request(plat->cd_gpio, "sdhci_cd");
+		snprintf(tegra_host->cd_gpio_name,sizeof(tegra_host->cd_gpio_name),"sdhci%d_cd",pdev->id);
+		rc = gpio_request(plat->cd_gpio, tegra_host->cd_gpio_name);
 		if (rc) {
 			dev_err(mmc_dev(host->mmc),
 				"failed to allocate cd gpio\n");
@@ -961,7 +966,7 @@ static int __devinit sdhci_tegra_probe(struct platform_device *pdev)
 		tegra_gpio_enable(plat->cd_gpio);
 		gpio_direction_input(plat->cd_gpio);
 
-		tegra_host->card_present = (gpio_get_value(plat->cd_gpio) == 0);
+		tegra_host->card_present = (gpio_get_value(plat->cd_gpio) == plat->cd_gpio_active_high);
 
 		rc = request_threaded_irq(gpio_to_irq(plat->cd_gpio), NULL,
 				 carddetect_irq,
@@ -987,7 +992,8 @@ static int __devinit sdhci_tegra_probe(struct platform_device *pdev)
 	}
 
 	if (gpio_is_valid(plat->wp_gpio)) {
-		rc = gpio_request(plat->wp_gpio, "sdhci_wp");
+		snprintf(tegra_host->wp_gpio_name,sizeof(tegra_host->wp_gpio_name),"sdhci%d_wp",pdev->id);
+		rc = gpio_request(plat->wp_gpio, tegra_host->wp_gpio_name);
 		if (rc) {
 			dev_err(mmc_dev(host->mmc),
 				"failed to allocate wp gpio\n");
@@ -1004,7 +1010,7 @@ static int __devinit sdhci_tegra_probe(struct platform_device *pdev)
 	if (!gpio_is_valid(plat->cd_gpio))
 		tegra_host->card_present = 1;
 
-	if (!plat->mmc_data.built_in) {
+	if (!plat->mmc_data.built_in && !plat->has_no_vreg) {
 		if (plat->mmc_data.ocr_mask & SDHOST_1V8_OCR_MASK) {
 			tegra_host->vddio_min_uv = SDHOST_LOW_VOLT_MIN;
 			tegra_host->vddio_max_uv = SDHOST_LOW_VOLT_MAX;
