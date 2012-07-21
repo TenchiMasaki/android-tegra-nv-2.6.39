@@ -266,7 +266,7 @@ static struct alc5623_platform_data adam_alc5623_pdata = {
 	.avdd_mv		= 3300,	/* Analog vdd in millivolts */
 
 	.mic1bias_mv		= 2475,	/* MIC bias voltage */
-	.mic1boost_db		= 20,	/* MIC1 gain boost */
+	.mic1boost_db		= 30,	/* MIC1 gain boost */
 	.mic2boost_db		= 20,	/* MIC2 gain boost */
 
 	.default_is_mic2 	= false,	/* Adam uses MIC1 as the default capture source */
