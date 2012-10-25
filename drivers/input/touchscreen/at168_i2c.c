@@ -149,6 +149,7 @@ static int at168_read_registers(struct at168_data *touch, unsigned char reg, uns
 	return ret;
 }
 
+/*
 static ssize_t at168_dump_registers(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	int ret,i,written=0;
@@ -173,6 +174,7 @@ static ssize_t at168_dump_registers(struct device *dev, struct device_attribute 
 
 
 static DEVICE_ATTR(dump_registers, 0664, at168_dump_registers, NULL);
+*/
 
 static int at168_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
