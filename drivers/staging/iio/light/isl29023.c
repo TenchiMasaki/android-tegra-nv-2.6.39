@@ -30,6 +30,16 @@
 #include <linux/slab.h>
 #include "../iio.h"
 
+#define TAG             "ISL29023: "
+
+#define __ISL29023_GENERIC_DEBUG__        1
+
+#if (__ISL29023_GENERIC_DEBUG__)
+#define logd(x...)      do { printk(x); } while(0)
+#else
+#define logd(x...)      do {} while(0)
+#endif
+
 #define CONVERSION_TIME_MS		50
 
 #define ISL29023_REG_ADD_COMMAND1	0x00
@@ -58,6 +68,7 @@ struct isl29023_chip {
 	struct iio_dev		*indio_dev;
 	struct i2c_client	*client;
 	struct mutex		lock;
+	int 			irq;
 	unsigned int		range;
 	unsigned int		adc_bit;
 	int			prox_scheme;
@@ -319,8 +330,10 @@ static ssize_t show_name(struct device *dev,
 }
 
 static IIO_DEVICE_ATTR(range, S_IRUGO | S_IWUSR, show_range, store_range, 0);
-static IIO_DEVICE_ATTR(resolution, S_IRUGO | S_IWUSR,
-	show_resolution, store_resolution, 0);
+static IIO_CONST_ATTR(range_available, "1000 4000 16000 64000");
+static IIO_CONST_ATTR(adc_resolution_available, "4 8 12 16");
+static IIO_DEVICE_ATTR(adc_resolution, S_IRUGO | S_IWUSR, show_resolution, store_resolution, 0);
+static IIO_DEVICE_ATTR(resolution, S_IRUGO | S_IWUSR, show_resolution, store_resolution, 0);
 static IIO_DEVICE_ATTR(lux, S_IRUGO, show_lux, NULL, 0);
 static IIO_DEVICE_ATTR(ir, S_IRUGO, show_ir, NULL, 0);
 static IIO_DEVICE_ATTR(name, S_IRUGO, show_name, NULL, 0);
@@ -328,13 +341,16 @@ static IIO_DEVICE_ATTR(name, S_IRUGO, show_name, NULL, 0);
 static struct attribute *isl29023_attributes[] = {
 	&iio_dev_attr_name.dev_attr.attr,
 	&iio_dev_attr_range.dev_attr.attr,
+        &iio_const_attr_range_available.dev_attr.attr,
+        &iio_const_attr_adc_resolution_available.dev_attr.attr,
+        &iio_dev_attr_adc_resolution.dev_attr.attr,
 	&iio_dev_attr_resolution.dev_attr.attr,
 	&iio_dev_attr_lux.dev_attr.attr,
 	&iio_dev_attr_ir.dev_attr.attr,
 	NULL
 };
 
-static const struct attribute_group isl29108_group = {
+static const struct attribute_group isl29023_group = {
 	.attrs = isl29023_attributes,
 };
 
@@ -378,6 +394,8 @@ static int isl29023_chip_init(struct i2c_client *client)
 	int new_adc_bit;
 	unsigned int new_range;
 
+	logd(TAG "isl29023_chip_init\r\n");
+
 	isl29023_regulator_enable(client);
 
 	for (i = 0; i < ARRAY_SIZE(chip->reg_cache); i++) {
@@ -393,6 +411,9 @@ static int isl29023_chip_init(struct i2c_client *client)
 		dev_err(&client->dev, "Init of isl29023 fails\n");
 		return -ENODEV;
 	}
+
+	logd(TAG "isl29023_chip_init successfully\r\n");
+
 	return 0;
 }
 
@@ -411,6 +432,7 @@ static int __devinit isl29023_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, chip);
 	chip->client = client;
+	chip->irq = client->irq;
 
 	mutex_init(&chip->lock);
 
@@ -427,7 +449,7 @@ static int __devinit isl29023_probe(struct i2c_client *client,
 		goto exit_free;
 	}
 
-	chip->indio_dev->attrs = &isl29108_group;
+	chip->indio_dev->attrs = &isl29023_group;
 	chip->indio_dev->dev.parent = &client->dev;
 	chip->indio_dev->dev_data = (void *)(chip);
 	chip->indio_dev->driver_module = THIS_MODULE;
