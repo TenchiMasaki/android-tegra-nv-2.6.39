@@ -30,7 +30,7 @@
 #include <linux/slab.h>
 #include "../iio.h"
 
-#define CONVERSION_TIME_MS		100
+#define CONVERSION_TIME_MS		50
 
 #define ISL29023_REG_ADD_COMMAND1	0x00
 #define COMMMAND1_OPMODE_SHIFT		5
