@@ -521,8 +521,17 @@ struct station_info {
 	u32 tx_retries;
 	u32 tx_failed;
 	u32 rx_dropped_misc;
+	struct sta_bss_parameters bss_param;
 
 	int generation;
+
+	const u8 *assoc_req_ies;
+	size_t assoc_req_ies_len;
+
+	/*
+	 * Note: Add a new enum station_info_flags value for each new field and
+	 * use it to check which fields are initialized.
+	 */
 };
 
 /**
