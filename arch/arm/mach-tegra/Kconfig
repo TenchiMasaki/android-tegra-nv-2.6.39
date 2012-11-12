@@ -72,6 +72,8 @@ config MACH_ADAM
        help
          Support for all TabletPCs based on the ADAM design.
 
+
+
 config MACH_HARMONY
        bool "Harmony board"
        depends on ARCH_TEGRA_2x_SOC
@@ -212,6 +214,10 @@ config TEGRA_SYSTEM_DMA
 	help
 	  Adds system DMA functionality for NVIDIA Tegra SoCs, used by
 	  several Tegra device drivers
+
+config KERNEL_OC_MODE
+        bool "Enable overclocking ala clemsyn"
+        default n
 
 config TEGRA_PWM
 	tristate "Enable PWM driver"
