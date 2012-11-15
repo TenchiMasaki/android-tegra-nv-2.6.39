@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/resource.h>
 #include <linux/regulator/machine.h>
+#include <linux/regulator/fixed.h>
 #include <linux/mfd/tps6586x.h>
 #include <linux/gpio.h>
 #include <linux/io.h>
