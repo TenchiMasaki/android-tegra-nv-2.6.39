@@ -28,7 +28,7 @@
 
 #define SO340010_TIMER_INTERVAL			2000
 
-#define __SO340010_GENERIC_DEBUG__        1
+#define __SO340010_GENERIC_DEBUG__        0
 #define __I2C_SNAG_DETECTED__           0
 
 #define TAG             "SO340010: "
