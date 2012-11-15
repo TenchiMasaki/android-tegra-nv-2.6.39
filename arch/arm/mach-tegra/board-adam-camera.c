@@ -26,6 +26,11 @@
 #include <linux/delay.h>
 #include <linux/reboot.h>
 #include <linux/memblock.h>
+#include <linux/nvhost.h>
+
+#include <media/tegra_v4l2_camera.h>
+#include <media/soc_camera.h>
+#include <media/s5k6aa.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -37,7 +42,6 @@
 #include <mach/irqs.h>
 #include <mach/nand.h>
 #include <mach/iomap.h>
-#include <linux/i2c.h>
 
 #include "board.h"
 #include "board-adam.h"
@@ -45,26 +49,111 @@
 #include "gpio-names.h"
 #include "devices.h"
 
-static struct platform_device adam_camera_pm_device = {
-	.name		= "adam-pm-camera",
-	.id			= -1,
+int adam_s5k6aa_set_power(int enable);
+
+#define S5K6AA_POWER_PIN TEGRA_GPIO_PBB5
+#define S5K6AA_RESET_PIN TEGRA_GPIO_PD2
+
+// TODO: clean these up into a common header
+#define S5K6AA_MCLK_FREQ 24000000
+
+static int clink_s5k6aa_set_power(struct device *dev, int power_on) {
+  return adam_s5k6aa_set_power(power_on);
+}
+
+struct s5k6aa_platform_data adam_s5k6aa_data = {
+	.mclk_frequency = S5K6AA_MCLK_FREQ,
+	.bus_type = V4L2_MBUS_PARALLEL,
+	.gpio_stby = { 
+		.gpio = S5K6AA_POWER_PIN, 
+		.level = 0, // active-low
+	},
+	.gpio_reset = { 
+		.gpio = S5K6AA_RESET_PIN,
+		.level = 0, // active-low
+	},
+	.nlanes = 1,
+	.horiz_flip = false,
+	.vert_flip = false,
 };
 
-
-static struct platform_device *adam_camera_pm_devices[] __initdata = {
-	&adam_camera_pm_device,
+static struct i2c_board_info adam_i2c3_board_info_camera = {
+  I2C_BOARD_INFO("S5K6AA",  0x3c),
+  // platform data will get overwritten here with soc_camera_device
 };
 
-static struct i2c_board_info __initdata adam_i2c_bus3_sensor_info[] = {
-         {
-                I2C_BOARD_INFO("ov5650", 0x3c),
-         },
+static struct soc_camera_link clink_s5k6aa = {
+  .board_info = &adam_i2c3_board_info_camera,
+  .i2c_adapter_id = 3,
+  .power = &clink_s5k6aa_set_power,
+  .priv = &adam_s5k6aa_data,
+  // TODO: move s5k6aa regulators here
+};
+
+static struct platform_device adam_tegra_s5k6aa_device = {
+  .name   = "soc-camera-pdrv",
+  .id     = 0,
+  .dev    = {
+    .platform_data = &clink_s5k6aa,
+  },
+};
+
+static struct platform_device tegra_camera_power_device = {
+  // note the underscore
+  .name   = "tegra_camera",
+  .id     = 0,
+};
+
+static struct resource adam_camera_resources[] = {
+	{
+		.name	= "regs",
+		.start	= TEGRA_VI_BASE,
+		.end	= TEGRA_VI_BASE + TEGRA_VI_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+/* In theory we might want to use this callback to reference the 
+   tegra_camera driver from the soc_camera host driver instead of
+   the i2c client driver */
+static int adam_enable_camera(struct nvhost_device *ndev)
+{
+	// struct soc_camera_host *ici = to_soc_camera_host(&ndev->dev);
+
+	dev_dbg(&ndev->dev, "%s\n", __func__);
+
+	return 0;
+}
+
+static void adam_disable_camera(struct nvhost_device *ndev)
+{
+	dev_dbg(&ndev->dev, "%s\n", __func__);
+}
+
+static struct tegra_camera_platform_data adam_camera_pdata = {
+  .enable_camera = &adam_enable_camera,
+  .disable_camera = &adam_disable_camera,
+  .flip_h = 0,
+  .flip_v = 0,
 };
 
 int __init adam_camera_register_devices(void)
 {
+  int ret;
 
-	return i2c_register_board_info(3, adam_i2c_bus3_sensor_info,
-                ARRAY_SIZE(adam_i2c_bus3_sensor_info));	
-	return platform_add_devices(adam_camera_pm_devices, ARRAY_SIZE(adam_camera_pm_devices));
+  tegra_camera_device.dev.platform_data = &adam_camera_pdata;
+
+  ret = platform_device_register(&tegra_camera_power_device);
+  if(ret)
+    return ret;
+
+  ret = platform_device_register(&adam_tegra_s5k6aa_device);
+  if(ret)
+    return ret;
+
+  ret = nvhost_device_register(&tegra_camera_device);
+  if(ret)
+    return ret;
+
+  return 0;
 }

@@ -74,6 +74,10 @@ static __initdata struct tegra_clk_init_table adam_clk_init_table[] = {
 	{ "cdev1",		NULL,			0,		true},
 	{ "uartc",		"pll_p",		216000000,	false},    /* tegra_uart.2 uart.0 */
 	{ "uartd",		"pll_p",		216000000,	false},    /* tegra_uart.3 uart.3 */
+	{ "csus",    "clk_m",          0,  false},    /* tegra_camera */
+	{ "isp",    "clk_m",    0,  false},    /* tegra_camera? */
+	{ "vi_sensor",    "pll_m",   20000000,  false},    /* tegra_camera */
+	{ "vi",      "pll_m",   21000000,  false},    /* tegra_camera */
 #ifdef ADAM_48KHZ_AUDIO
 	{ "pll_a",		"pll_p_out1",	 73728000,	true},		/* always on - audio clocks */
 	{ "pll_a_out0", 	"pll_a",	 12288000,	true},		/* always on - i2s audio */

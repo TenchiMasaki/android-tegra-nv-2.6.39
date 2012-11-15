@@ -99,6 +99,44 @@ static struct regulator_consumer_supply tps658621_ldo9_supply[] = {
 	REGULATOR_SUPPLY("vdd_ldo9", NULL),
 	REGULATOR_SUPPLY("avdd_2v85", NULL),
 	REGULATOR_SUPPLY("vdd_ddr_rx", NULL),
+	REGULATOR_SUPPLY("vddio_vi", NULL),
+};
+
+/* Super power voltage rail for the SOC : VDD SOC
+*/
+static struct regulator_consumer_supply tps658621_soc_supply[] = {
+	REGULATOR_SUPPLY("vdd_soc", NULL)
+};
+
+/* PLLE voltage rail : AVDD_PLLE -> VDD_1V05
+   PEX_CLK voltage rail : AVDD_PLLE -> VDD_1V05
+*/
+static struct regulator_consumer_supply fixed_buck_tps62290_supply[] = {
+	REGULATOR_SUPPLY("avdd_plle", NULL),
+};
+
+/* MIPI voltage rail (DSI_CSI): AVDD_DSI_CSI -> VDD_1V2
+   Wlan : VCORE_WIFI (VDD_1V2)
+*/
+static struct regulator_consumer_supply fixed_ldo_tps72012_supply[] = {
+	REGULATOR_SUPPLY("avdd_dsi_csi", NULL),
+	REGULATOR_SUPPLY("vcore_wifi", NULL)
+};
+
+/* PEX_CLK voltage rail : PMU_GPIO-1 -> VDD_1V5
+*/
+static struct regulator_consumer_supply fixed_ldo_tps74201_supply[] = {
+	REGULATOR_SUPPLY("vdd_pex_clk_2", NULL),
+};
+
+/* HDMI +5V for the pull-up for DDC : VDDIO_VID
+   HDMI +5V for hotplug
+   lcd rail (required for crt out) : VDDIO_VGA
+*/
+static struct regulator_consumer_supply fixed_ldo_tps2051B_supply[] = {
+	REGULATOR_SUPPLY("vddio_vid", NULL),
+	REGULATOR_SUPPLY("vddio_vga", NULL),
+	REGULATOR_SUPPLY("vdd_camera", NULL),
 };
 
 static struct tps6586x_settings sm0_config = {
@@ -133,6 +171,22 @@ static struct tps6586x_settings sm1_config = {
 		.driver_data = config,					\
 	}
 
+#define FIXED_REGULATOR_INIT(_id, _mv, _aon, _bon)		\
+	{													\
+		.constraints = {								\
+			.name = #_id,								\
+			.min_uV = (_mv)*1000,						\
+			.max_uV = (_mv)*1000,						\
+			.valid_modes_mask = REGULATOR_MODE_NORMAL,	\
+			.valid_ops_mask = REGULATOR_CHANGE_STATUS,	\
+			.always_on	= _aon, 						\
+			.boot_on	= _bon, 						\
+			},												\
+			.num_consumer_supplies = ARRAY_SIZE( fixed_##_id##_supply),\
+		.consumer_supplies = fixed_##_id##_supply,		\
+	}
+
+
 #define ON	1
 #define OFF	0
 
@@ -149,6 +203,45 @@ static struct regulator_init_data ldo6_data = REGULATOR_INIT(ldo6, 1800, 1800, O
 static struct regulator_init_data ldo7_data = REGULATOR_INIT(ldo7, 1250, 3300, OFF, NULL);
 static struct regulator_init_data ldo8_data = REGULATOR_INIT(ldo8, 1250, 3300, OFF, NULL);
 static struct regulator_init_data ldo9_data = REGULATOR_INIT(ldo9, 1250, 3300, OFF, NULL);
+
+static struct regulator_init_data soc_data = REGULATOR_INIT(soc, 1250, 3300, ON, NULL);
+
+static struct regulator_init_data ldo_tps74201_data  
+	= FIXED_REGULATOR_INIT(ldo_tps74201 , 1500, 0, 0 ); // 1500 (VDD1.5, enabled by PMU_GPIO[0] (0=enabled) - Turn it off as soon as we boot
+static struct regulator_init_data buck_tps62290_data 
+	= FIXED_REGULATOR_INIT(buck_tps62290, 1050, 1, 1 ); // 1050 (VDD1.05, AVDD_PEX ... enabled by PMU_GPIO[2] (1=enabled)
+static struct regulator_init_data ldo_tps72012_data  
+	= FIXED_REGULATOR_INIT(ldo_tps72012 , 1200, 0, 0 ); // 1200 (VDD1.2, VCORE_WIFI ...) enabled by PMU_GPIO[1] (1=enabled)
+static struct regulator_init_data ldo_tps2051B_data  
+	= FIXED_REGULATOR_INIT(ldo_tps2051B , 5000, 1, 1 ); // 5000 (VDDIO_VID), enabled by AP_GPIO Port T, pin2, 
+														// (set as input to enable,outpul low to disable). Powers HDMI.
+														// Wait 500uS to let it stabilize before returning . Probably also 
+														// used for USB host. It should always be kept enabled. Force enabling
+														// it at boot.
+
+
+#define FIXED_REGULATOR_CONFIG(_id, _mv, _gpio, _activehigh, _itoen, _delay, _atboot, _data)	\
+	{												\
+		.supply_name 	= #_id,						\
+		.microvolts  	= (_mv)*1000,				\
+		.gpio        	= _gpio,					\
+		.enable_high	= _activehigh,				\
+		.startup_delay	= _delay,					\
+		.enabled_at_boot= _atboot,					\
+		.init_data		= &_data,					\
+	}
+		//.set_as_input_to_enable = _itoen,			\
+/* The next 3 are fixed regulators controlled by PMU GPIOs */
+static struct fixed_voltage_config ldo_tps74201_cfg  
+	= FIXED_REGULATOR_CONFIG(ldo_tps74201  , 1500, PMU_GPIO0 , 0,0, 200000, 0, ldo_tps74201_data);
+static struct fixed_voltage_config buck_tps62290_cfg
+	= FIXED_REGULATOR_CONFIG(buck_tps62290 , 1050, PMU_GPIO2 , 1,0, 200000, 1, buck_tps62290_data);
+static struct fixed_voltage_config ldo_tps72012_cfg
+	= FIXED_REGULATOR_CONFIG(ldo_tps72012  , 1200, PMU_GPIO1 , 1,0, 200000, 1, ldo_tps72012_data);
+
+/* the next one is controlled by a general purpose GPIO */
+static struct fixed_voltage_config ldo_tps2051B_cfg
+	= FIXED_REGULATOR_CONFIG(ldo_tps2051B  , 5000, ADAM_ENABLE_VDD_VID	, 1,1, 500000, 0, ldo_tps2051B_data);
 
 static struct tps6586x_rtc_platform_data rtc_data = {
 	.irq = TEGRA_NR_IRQS + TPS6586X_INT_RTC_ALM1,
@@ -202,6 +295,18 @@ static struct i2c_board_info __initdata adam_regulators[] = {
 		.platform_data	= &tps_platform,
 	},
 };
+
+#define GPIO_FIXED_REG(_id,_data)		\
+	{									\
+		.name = "reg-fixed-voltage",	\
+		.id = _id,						\
+		.dev = { 						\
+			.platform_data = & _data,	\
+		}, 								\
+	} 	
+
+static struct platform_device adam_ldo_tps2051B_reg_device = 
+	GPIO_FIXED_REG(3,ldo_tps2051B_cfg); /* id is 3, because 0-2 are already used in the PMU gpio controlled fixed regulators */
 
 static void adam_board_suspend(int lp_state, enum suspend_stage stg)
 {
