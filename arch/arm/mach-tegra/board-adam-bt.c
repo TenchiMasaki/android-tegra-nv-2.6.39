@@ -72,9 +72,33 @@ void __init adam_bt_rfkill(void)
 	return;
 }
 
+static struct resource adam_bluesleep_resources[] = {
+	[0] = {
+		.name = "gpio_host_wake",
+			.start  = TEGRA_GPIO_PU6,
+			.end    = TEGRA_GPIO_PU6,
+			.flags  = IORESOURCE_IO,
+	},
+	[1] = {
+		.name = "host_wake",
+			.start  = TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PU6),
+			.end    = TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PU6),
+			.flags  = IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE,
+	},
+};
+
+static struct platform_device adam_bluesleep_device = {
+	.name           = "bluesleep",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(adam_bluesleep_resources),
+	.resource       = adam_bluesleep_resources,
+};
+
+extern void bluesleep_setup_uart_port(struct platform_device *uart_dev);
+
 void __init adam_setup_bluesleep(void)
 {
-	struct platform_device *pdev = NULL;
+/*	struct platform_device *pdev = NULL;
 	struct resource *res;
 
 	pdev = platform_device_alloc("bluesleep", 0);
@@ -119,5 +143,9 @@ err_free_res:
 	kfree(res);
 err_free_dev:
 	platform_device_put(pdev);
+	return;*/
+	platform_device_register(&adam_bluesleep_device);
+	bluesleep_setup_uart_port(&tegra_uartc_device);
+	tegra_gpio_enable(TEGRA_GPIO_PU6);
 	return;
 }
