@@ -49,7 +49,7 @@
 #include "gpio-names.h"
 #include "devices.h"
 
-int adam_s5k6aa_set_power(int enable);
+//int adam_s5k6aa_set_power(int enable);
 
 #define S5K6AA_POWER_PIN TEGRA_GPIO_PBB5
 #define S5K6AA_RESET_PIN TEGRA_GPIO_PD2
@@ -104,14 +104,6 @@ static struct platform_device tegra_camera_power_device = {
   .id     = 0,
 };
 
-static struct resource adam_camera_resources[] = {
-	{
-		.name	= "regs",
-		.start	= TEGRA_VI_BASE,
-		.end	= TEGRA_VI_BASE + TEGRA_VI_SIZE - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-};
 
 /* In theory we might want to use this callback to reference the 
    tegra_camera driver from the soc_camera host driver instead of
