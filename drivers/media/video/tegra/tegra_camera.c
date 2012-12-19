@@ -28,7 +28,7 @@
 #include <mach/iomap.h>
 #include <mach/clk.h>
 #include <mach/powergate.h>
-#include <mach/clock.h>
+#include "../../../../arch/arm/mach-tegra/clock.h"
 
 #include <media/tegra_camera.h>
 
@@ -663,13 +663,12 @@ static int __init tegra_camera_init(void)
 {
 	return platform_driver_register(&tegra_camera_driver);
 }
-subsys_initcall(tegra_camera_init);
 
 static void __exit tegra_camera_exit(void)
 {
 	platform_driver_unregister(&tegra_camera_driver);
 }
 
-module_init(tegra_camera_init);
+subsys_initcall(tegra_camera_init);
 module_exit(tegra_camera_exit);
 

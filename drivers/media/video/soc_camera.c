@@ -254,7 +254,7 @@ static int soc_camera_enum_fivals(struct file *file, void *fh,
 }
 
 static int soc_camera_reqbufs(struct file *file, void *priv,
-			      struct v4l2_requestbuffers *p)
+				      struct v4l2_requestbuffers *p)
 {
 	int ret;
 	struct soc_camera_device *icd = file->private_data;

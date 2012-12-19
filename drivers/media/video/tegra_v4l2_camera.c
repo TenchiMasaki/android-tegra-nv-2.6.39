@@ -1449,6 +1449,7 @@ static int __devinit tegra_camera_probe(struct nvhost_device *ndev)
 	pm_runtime_resume(&ndev->dev);
 
 	err = soc_camera_host_register(&pcdev->soc_host);
+	dev_err(&ndev->dev,"soc_camera_registre=err:%d.\n",err);
 	if (IS_ERR_VALUE(err))
 		goto exit_iounmap;
 
@@ -1462,7 +1463,7 @@ exit_iounmap:
 	pm_runtime_disable(&ndev->dev);
 	iounmap(pcdev->vi_base);
 exit_release_mem_region:
-	release_mem_region(res->start, resource_size(res));
+        release_mem_region(res->start, resource_size(res));
 exit_free_pcdev:
 	kfree(pcdev);
 exit:
