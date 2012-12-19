@@ -177,6 +177,6 @@ extern void adam_setup_bluesleep(void);
 extern void adam_bt_rfkill(void);
 extern int adam_nand_register_devices(void);
 extern int adam_camera_register_devices(void);
-
+extern int adam_s5k6aa_set_power(int enable);
 #endif
 
