@@ -103,8 +103,16 @@ u32 nvhost_syncpt_read_wait_base(struct nvhost_syncpt *sp, u32 id)
  */
 void nvhost_syncpt_cpu_incr(struct nvhost_syncpt *sp, u32 id)
 {
-	BUG_ON(!syncpt_op(sp).cpu_incr);
-	syncpt_op(sp).cpu_incr(sp, id);
+	//conflicting on merge
+	//BUG_ON(!syncpt_op(sp).cpu_incr);
+	//syncpt_op(sp).cpu_incr(sp, id);
+
+	struct nvhost_master *dev = syncpt_to_dev(sp);
+	WARN_ON(!nvhost_module_powered(&dev->mod));
+	BUG_ON(!client_managed(id) && nvhost_syncpt_min_eq_max(sp, id));
+        if (nvhost_module_powered(&dev->mod)) {
+		syncpt_op(sp).cpu_incr(sp, id);
+        }
 }
 
 /**

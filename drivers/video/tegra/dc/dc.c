@@ -1276,6 +1276,7 @@ u32 tegra_dc_incr_syncpt_max(struct tegra_dc *dc, int i)
 
 void tegra_dc_incr_syncpt_min(struct tegra_dc *dc, int i, u32 val)
 {
+        nvhost_module_busy(&dc->ndev->host->mod);
 	mutex_lock(&dc->lock);
 	if ( dc->enabled )
 		while (dc->syncpt[i].min < val) {
@@ -1284,6 +1285,7 @@ void tegra_dc_incr_syncpt_min(struct tegra_dc *dc, int i, u32 val)
 					dc->syncpt[i].id);
 		}
 	mutex_unlock(&dc->lock);
+        nvhost_module_idle(&dc->ndev->host->mod);
 }
 
 static bool tegra_dc_windows_are_clean(struct tegra_dc_win *windows[],
