@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux/arm 2.6.39.4 Kernel Configuration
-# Tue Oct 23 06:45:23 2012
+# Sat Dec 29 09:41:07 2012
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -864,8 +864,8 @@ CONFIG_BT_SCO=y
 CONFIG_BT_RFCOMM=y
 CONFIG_BT_RFCOMM_TTY=y
 CONFIG_BT_BNEP=y
-# CONFIG_BT_BNEP_MC_FILTER is not set
-# CONFIG_BT_BNEP_PROTO_FILTER is not set
+CONFIG_BT_BNEP_MC_FILTER=y
+CONFIG_BT_BNEP_PROTO_FILTER=y
 CONFIG_BT_HIDP=y
 
 #
