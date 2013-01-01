@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux/arm 2.6.39.4 Kernel Configuration
-# Sat Dec 29 10:24:40 2012
+# Tue Jan  1 10:12:20 2013
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -317,6 +317,7 @@ CONFIG_TEGRA_DEBUG_UARTA=y
 # CONFIG_TEGRA_DEBUG_UARTD is not set
 # CONFIG_TEGRA_DEBUG_UARTE is not set
 CONFIG_TEGRA_SYSTEM_DMA=y
+CONFIG_KERNEL_OC_MODE=y
 CONFIG_TEGRA_PWM=y
 # CONFIG_TEGRA_FIQ_DEBUGGER is not set
 CONFIG_TEGRA_EMC_SCALING_ENABLE=y
