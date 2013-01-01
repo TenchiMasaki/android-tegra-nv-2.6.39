@@ -94,58 +94,16 @@ static struct platform_device adam_bluesleep_device = {
 	.resource       = adam_bluesleep_resources,
 };
 
+#ifdef CONFIG_BT_BLUEDROID
 extern void bluesleep_setup_uart_port(struct platform_device *uart_dev);
+#endif
 
 void __init adam_setup_bluesleep(void)
 {
-/*	struct platform_device *pdev = NULL;
-	struct resource *res;
-
-	pdev = platform_device_alloc("bluesleep", 0);
-	if (!pdev) {
-		pr_err("unable to allocate platform device for bluesleep");
-		return;
-	}
-
-	res = kzalloc(sizeof(struct resource) * 2, GFP_KERNEL);
-	if (!res) {
-		pr_err("unable to allocate resource for bluesleep\n");
-		goto err_free_dev;
-	}
-
-	res[0].name   = "gpio_host_wake";
-	res[0].start  = TEGRA_GPIO_PU6;
-	res[0].end    = TEGRA_GPIO_PU6;
-	res[0].flags  = IORESOURCE_IO;
-
-	res[1].name   = "host_wake";
-	res[1].start  = gpio_to_irq(TEGRA_GPIO_PU6);
-	res[1].end    = gpio_to_irq(TEGRA_GPIO_PU6);
-	res[1].flags  = IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE;
-
-	if (platform_device_add_resources(pdev, res, 2)) {
-		pr_err("unable to add resources to bluesleep device\n");
-		goto err_free_res;
-	}
-
-	if (platform_device_add(pdev)) {
-		pr_err("unable to add bluesleep device\n");
-		goto err_free_res;
-	}
-
-	tegra_gpio_enable(TEGRA_GPIO_PU6);
-
-	kfree(res);
-
-	return;
-
-err_free_res:
-	kfree(res);
-err_free_dev:
-	platform_device_put(pdev);
-	return;*/
 	platform_device_register(&adam_bluesleep_device);
+#ifdef CONFIG_BT_BLUEDROID
 	bluesleep_setup_uart_port(&tegra_uartc_device);
+#endif
 	tegra_gpio_enable(TEGRA_GPIO_PU6);
 	return;
 }
