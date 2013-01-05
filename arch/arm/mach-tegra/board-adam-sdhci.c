@@ -89,6 +89,10 @@ static struct embedded_sdio_data embedded_sdio_data0 = {
         },
 };
 
+static unsigned int adam_wifi_status(struct device *dev)
+{
+        return adam_wlan_cd;
+}
 
 static struct tegra_sdhci_platform_data tegra_sdhci_platform_data1 = {
 	.clk_id = NULL,
@@ -96,7 +100,8 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data1 = {
 	.mmc_data = {
 		.register_status_notify	= adam_wifi_status_register,
 		.embedded_sdio = &embedded_sdio_data0,
-                .built_in = 0,
+                .built_in = 1,
+		.status = adam_wifi_status,
 	},
 	.wow_gpio = ADAM_SDIO_WOW,
 	.cd_gpio = -1,
@@ -154,13 +159,6 @@ static int adam_wifi_status_register(
 	wlan_status_cb_devid = dev_id;
 	return 0;
 } 
-
-
-
-static unsigned int adam_wifi_status(struct device *dev)
-{
-	return adam_wlan_cd;
-}
 
 /* Used to set the virtual CD of wifi adapter */
 int adam_wifi_set_carddetect(int val)
