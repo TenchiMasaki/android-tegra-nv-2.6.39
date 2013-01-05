@@ -105,12 +105,12 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data1 = {
 	.bus_width = 8,
 };
 
-/*static struct tegra_sdhci_platform_data tegra_sdhci_platform_data2 = {
+static struct tegra_sdhci_platform_data tegra_sdhci_platform_data2 = {
 	.cd_gpio = -1,
 	.wp_gpio = -1,
 	.power_gpio = -1,
 	.has_no_vreg = 1,
-};*/
+};
 
 static struct tegra_sdhci_platform_data tegra_sdhci_platform_data3 = {
 	.wow_gpio = -1,
@@ -134,6 +134,14 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data4 = {
 	.mmc_data = {
 		.built_in = 1,
 	}
+};
+
+static struct platform_device *adam_sdhci_devices[] __initdata = {
+	&tegra_sdhci_device1,
+//	&tegra_sdhci_device2,
+//have to init these out of order so that the eMMC card is registered first
+	&tegra_sdhci_device4,
+	&tegra_sdhci_device3,
 };
 
 static int adam_wifi_status_register(
@@ -217,9 +225,11 @@ static int __init adam_wifi_init(void)
 /* Register sdhci devices */
 int __init adam_sdhci_register_devices(void)
 {
+	int ret=0;
+
         /* Plug in platform data */
         tegra_sdhci_device1.dev.platform_data = &tegra_sdhci_platform_data1;
-        //tegra_sdhci_device2.dev.platform_data = &tegra_sdhci_platform_data2;
+        tegra_sdhci_device2.dev.platform_data = &tegra_sdhci_platform_data2;
         tegra_sdhci_device3.dev.platform_data = &tegra_sdhci_platform_data3;
         tegra_sdhci_device4.dev.platform_data = &tegra_sdhci_platform_data4;
 
@@ -228,11 +238,12 @@ int __init adam_sdhci_register_devices(void)
 	tegra_gpio_enable(tegra_sdhci_platform_data3.wp_gpio);
 	tegra_gpio_enable(tegra_sdhci_platform_data4.power_gpio);
 
-        platform_device_register(&tegra_sdhci_device4);
+/*        platform_device_register(&tegra_sdhci_device4);
 	platform_device_register(&tegra_sdhci_device3);
 	//platform_device_register(&tegra_sdhci_device2);
-	platform_device_register(&tegra_sdhci_device1);
+	platform_device_register(&tegra_sdhci_device1);*/
+	ret = platform_add_devices(adam_sdhci_devices, ARRAY_SIZE(adam_sdhci_devices));
 
 	adam_wifi_init();
-	return 0;
+	return ret;
 }
