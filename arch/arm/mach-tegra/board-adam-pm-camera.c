@@ -40,8 +40,8 @@
 //#define TPS6586X_GPIO_BASE (TEGRA_NR_GPIOS)
 //#define AVDD_DSI_CSI_ENB_GPIO (TPS6586X_GPIO_BASE + 1) //gpio2
 
-#define S5K6AA_MCLK_FREQ 24000000
-#define S5K6AA_PCLK_FREQ 24000000
+#define S5K4CDGX_MCLK_FREQ 24000000
+#define S5K4CDGX_PCLK_FREQ 24000000
 
 void *tegra_camera_get_dev(void);
 int tegra_camera_enable(void *d);
@@ -51,18 +51,18 @@ int tegra_camera_clk_set_info(void *d, struct tegra_camera_clk_info *info);
 static struct tegra_camera_clk_info pclk_info = {
   .id = TEGRA_CAMERA_MODULE_VI,
   .clk_id = TEGRA_CAMERA_VI_CLK,
-  .rate = S5K6AA_PCLK_FREQ,
+  .rate = S5K4CDGX_PCLK_FREQ,
   .flag = 0, //TEGRA_CAMERA_ENABLE_PD2VI_CLK,
 };
 
 static struct tegra_camera_clk_info mclk_info = {
   .id = TEGRA_CAMERA_MODULE_VI,
   .clk_id = TEGRA_CAMERA_VI_SENSOR_CLK,
-  .rate = S5K6AA_MCLK_FREQ,
+  .rate = S5K4CDGX_MCLK_FREQ,
   .flag = 0,
 };
 
-static int adam_s5k6aa_power_on(void)
+static int adam_s5k4cdgx_power_on(void)
 {
 	void *dev = tegra_camera_get_dev();
 
@@ -70,7 +70,14 @@ static int adam_s5k6aa_power_on(void)
 	  pr_err("%s: could not get pm device!\n", __func__);
 	  return 0;
 	}
-
+	
+	gpio_set_value(TEGRA_GPIO_PBB5,0);
+	mdelay(10);
+        gpio_set_value(TEGRA_GPIO_PD2,0);
+        mdelay(10);
+        gpio_set_value(TEGRA_GPIO_PD2,1);
+	mdelay(10);
+	
 	tegra_camera_enable(dev);
 	tegra_camera_clk_set_info(dev, &mclk_info);
 	tegra_camera_clk_set_info(dev, &pclk_info);
@@ -82,7 +89,7 @@ static int adam_s5k6aa_power_on(void)
 	return 0;
 }
 
-static int adam_s5k6aa_power_off(void)
+static int adam_s5k4cdgx_power_off(void)
 {
 	void *dev = tegra_camera_get_dev();
 
@@ -91,6 +98,11 @@ static int adam_s5k6aa_power_off(void)
 	  return 0;
 	}
 
+        gpio_set_value(TEGRA_GPIO_PBB5,1);
+        mdelay(10);
+        gpio_set_value(TEGRA_GPIO_PD2,0);
+        mdelay(10);
+
 	// camera MCLK (vi_sensor clk)
 	// camera PCLK (vi clk, pixel clk for data) is always an input
 	tegra_pinmux_set_tristate(TEGRA_PINGROUP_CSUS, TEGRA_TRI_TRISTATE);
@@ -98,23 +110,23 @@ static int adam_s5k6aa_power_off(void)
 	return 0;
 }
 
-int adam_s5k6aa_set_power(int enable)
+int adam_s5k4cdgx_set_power(int enable)
 {
   if(enable)
-    return adam_s5k6aa_power_on();
+    return adam_s5k4cdgx_power_on();
   else
-    return adam_s5k6aa_power_off();
+    return adam_s5k4cdgx_power_off();
 }
-EXPORT_SYMBOL(adam_s5k6aa_set_power);
+EXPORT_SYMBOL(adam_s5k4cdgx_set_power);
 
-static int adam_s5k6aa_reset(void)
+static int adam_s5k4cdgx_reset(void)
 {
-	pr_info("s5k6aa reset\n");
+	pr_info("s5k4cdgx reset\n");
 
 	return 0;
 }
 
-enum s5k6aa_gpio_id {
+enum s5k4cdgx_gpio_id {
 	STBY,
 	RST,
 	GPIO_NUM,
