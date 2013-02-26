@@ -173,8 +173,8 @@ static struct platform_device *adam_i2s_devices[] __initdata = {
 	&tegra_spdif_device,
 	&tegra_das_device,
 	&spdif_dit_device,
+	&bluetooth_dit_device,
 	&tegra_pcm_device,
-	&tegra_generic_codec,
 	&adam_audio_device, /* this must come last, as we need the DAS to be initialized to access the codec registers ! */
 };
 
