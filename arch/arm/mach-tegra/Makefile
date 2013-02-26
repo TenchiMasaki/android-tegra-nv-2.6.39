@@ -176,7 +176,6 @@ obj-${CONFIG_MACH_ADAM}              += board-adam-bootinfo.o
 obj-${CONFIG_MACH_ADAM}              += board-adam-bt.o
 obj-${CONFIG_MACH_ADAM}              += board-adam-camera.o
 obj-${CONFIG_MACH_ADAM}              += board-adam-clocks.o
-obj-${CONFIG_MACH_ADAM}              += board-adam-gps.o
 obj-${CONFIG_MACH_ADAM}              += board-adam-gpu.o
 obj-${CONFIG_MACH_ADAM}              += board-adam-gsm.o
 obj-${CONFIG_MACH_ADAM}              += board-adam-i2c.o
@@ -197,7 +196,6 @@ obj-${CONFIG_MACH_ADAM}              += board-adam-wdt.o
 obj-${CONFIG_MACH_ADAM}              += board-adam.o
 # adam power management drivers
 obj-${CONFIG_MACH_ADAM}              += board-adam-pm-camera.o
-obj-${CONFIG_MACH_ADAM}              += board-adam-pm-gps.o
 obj-${CONFIG_MACH_ADAM}              += board-adam-pm-gsm.o
 #obj-${CONFIG_MACH_ADAM}              += board-adam-pm-wlan.o
 

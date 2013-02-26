@@ -370,9 +370,6 @@ static void __init tegra_adam_init(void)
 	/* Register wlan powermanagement devices */
 //	adam_wlan_pm_register_devices();
 	
-	/* Register gps powermanagement devices */
-	adam_gps_pm_register_devices();
-
 	/* Register gsm powermanagement devices */
 	adam_gsm_pm_register_devices();
 	
