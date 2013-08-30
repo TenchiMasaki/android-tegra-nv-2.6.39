@@ -894,10 +894,10 @@ static void cap_audit_rule_free(void *lsmrule)
 
 void __init security_fixup_ops(struct security_operations *ops)
 {
-	set_to_cap_if_null(ops, binder_set_context_mgr);
-	set_to_cap_if_null(ops, binder_transaction);
-	set_to_cap_if_null(ops, binder_transfer_binder);
-	set_to_cap_if_null(ops, binder_transfer_file);
+        set_to_cap_if_null(ops, binder_set_context_mgr);
+        set_to_cap_if_null(ops, binder_transaction);
+        set_to_cap_if_null(ops, binder_transfer_binder);
+        set_to_cap_if_null(ops, binder_transfer_file);
 	set_to_cap_if_null(ops, ptrace_access_check);
 	set_to_cap_if_null(ops, ptrace_traceme);
 	set_to_cap_if_null(ops, capget);

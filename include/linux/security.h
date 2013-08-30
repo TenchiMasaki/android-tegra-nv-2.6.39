@@ -1374,6 +1374,10 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
  */
 struct security_operations {
 	char name[SECURITY_NAME_MAX + 1];
+        int (*binder_set_context_mgr) (struct task_struct *mgr);
+        int (*binder_transaction) (struct task_struct *from, struct task_struct *to);
+        int (*binder_transfer_binder) (struct task_struct *from, struct task_struct *to);
+        int (*binder_transfer_file) (struct task_struct *from, struct task_struct *to, struct file *file);
 
 	int (*binder_set_context_mgr) (struct task_struct *mgr);
 	int (*binder_transaction) (struct task_struct *from, struct task_struct *to);
