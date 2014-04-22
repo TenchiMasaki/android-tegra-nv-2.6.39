@@ -14,6 +14,8 @@
  * (at your option) any later version.
  */
 
+#define DEBUG 1
+
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
@@ -32,17 +34,18 @@
 
 #include "s5k4cdgx_regs.h"
 
-static int debug;
+
+static int debug = 2;
 module_param(debug, int, 0644);
 
 #define DRIVER_NAME			"S5K4CDGX"
 
 /* The token to indicate array termination */
-#define S5K4CDGX_TERM			0xffff
+#define S5K4CDGX_TERM			0xffffffff
 #define S5K4CDGX_OUT_WIDTH_DEF		640
 #define S5K4CDGX_OUT_HEIGHT_DEF		480
-#define S5K4CDGX_WIN_WIDTH_MAX		1280
-#define S5K4CDGX_WIN_HEIGHT_MAX		1024
+#define S5K4CDGX_WIN_WIDTH_MAX		2048
+#define S5K4CDGX_WIN_HEIGHT_MAX		1536
 #define S5K4CDGX_WIN_WIDTH_MIN		8
 #define S5K4CDGX_WIN_HEIGHT_MIN		8
 
@@ -67,94 +70,92 @@ module_param(debug, int, 0644);
 
 /* Initialization parameters */
 /* Master clock frequency in KHz */
-#define REG_I_INCLK_FREQ_L		0x023c
-#define REG_I_INCLK_FREQ_H		0x023e
+#define REG_I_INCLK_FREQ_L		0x7000023c
+#define REG_I_INCLK_FREQ_H		0x7000023e
 #define  MIN_MCLK_FREQ_KHZ		6000U
 #define  MAX_MCLK_FREQ_KHZ		27000U
-#define REG_I_USE_NPVI_CLOCKS		0x0256
-#define REG_I_USE_NMIPI_CLOCKS		0x0258
+#define REG_I_USE_NPVI_CLOCKS		0x70000256
+#define REG_I_USE_NMIPI_CLOCKS		0x70000258
 
 /* Clock configurations, n = 0..2. REG_I_* frequency unit is 4 kHz. */
-#define REG_I_OPCLK_4KHZ(n)		((n) * 6 + 0x025e)
-#define REG_I_MIN_OUTRATE_4KHZ(n)	((n) * 6 + 0x0260)
-#define REG_I_MAX_OUTRATE_4KHZ(n)	((n) * 6 + 0x0262)
+#define REG_I_OPCLK_4KHZ(n)		((n) * 6 + 0x7000025e)
+#define REG_I_MIN_OUTRATE_4KHZ(n)	((n) * 6 + 0x70000260)
+#define REG_I_MAX_OUTRATE_4KHZ(n)	((n) * 6 + 0x70000262)
 #define  SYS_PLL_OUT_FREQ		(48000000 / 4000)
 #define  PCLK_FREQ_MIN			(24000000 / 4000)
 #define  PCLK_FREQ_MAX			(48000000 / 4000)
-#define REG_I_INIT_PARAMS_UPDATED	0x0272
-#define REG_I_ERROR_INFO		0x0274
+#define REG_I_INIT_PARAMS_UPDATED	0x70000272
+#define REG_I_ERROR_INFO		0x70000274//?
+#define REG_I_DBG_REINITCMD		0x70000532
 
 /* General purpose parameters */
-#define REG_USER_BRIGHTNESS		0x0276
-#define REG_USER_CONTRAST		0x0278
-#define REG_USER_SATURATION		0x027a
-#define REG_USER_SHARPBLUR		0x027c
+#define REG_USER_BRIGHTNESS		0x70000276//?
+#define REG_USER_CONTRAST		0x70000278//?
+#define REG_USER_SATURATION		0x7000027a//?
+#define REG_USER_SHARPBLUR		0x7000027c//?
 
-#define REG_G_SPEC_EFFECTS		0x0286
-#define REG_G_ENABLE_PREV		0x0288
-#define REG_G_ENABLE_PREV_CHG		0x028a
-#define REG_G_NEW_CFG_SYNC		0x0298
-#define REG_G_PREVZOOM_IN_WIDTH		0x029a
-#define REG_G_PREVZOOM_IN_HEIGHT	0x029c
-#define REG_G_PREVZOOM_IN_XOFFS		0x029e
-#define REG_G_PREVZOOM_IN_YOFFS		0x02a0
-#define REG_G_INPUTS_CHANGE_REQ		0x02aa
-#define REG_G_ACTIVE_PREV_CFG		0x02ac
-#define REG_G_PREV_CFG_CHG		0x02ae
-#define REG_G_PREV_OPEN_AFTER_CH	0x02b0
-#define REG_G_PREV_CFG_ERROR		0x02b2
+#define REG_G_SPEC_EFFECTS		0x70000286
+#define REG_G_ENABLE_PREV		0x70000288
+#define REG_G_ENABLE_PREV_CHG		0x7000028a
+#define REG_G_NEW_CFG_SYNC		0x70000298
+#define REG_G_PREVZOOM_IN_WIDTH		0x7000029a//?
+#define REG_G_PREVZOOM_IN_HEIGHT	0x7000029c//?
+#define REG_G_PREVZOOM_IN_XOFFS		0x7000029e//?
+#define REG_G_PREVZOOM_IN_YOFFS		0x700002a0//?
+#define REG_G_INPUTS_CHANGE_REQ		0x700002aa//?
+#define REG_G_ACTIVE_PREV_CFG		0x700002ac
+#define REG_G_ACTIVE_CAP_CFG            0x700002b4 //not used yet
+#define REG_G_PREV_CFG_CHG		0x700002ae
+#define REG_G_PREV_OPEN_AFTER_CH	0x700002b0
+#define REG_G_PREV_CFG_ERROR		0x700002b2//?
 
 /* Preview control section. n = 0...4. */
 #define PREG(n, x)			((n) * 0x26 + x) //??
-#define REG_P_OUT_WIDTH(n)		PREG(n, 0x02e6)
-#define REG_P_OUT_HEIGHT(n)		PREG(n, 0x02e8)
-#define REG_P_FMT(n)			PREG(n, 0x02ea)
-#define REG_P_MAX_OUT_RATE(n)		PREG(n, 0x02ec)
-#define REG_P_MIN_OUT_RATE(n)		PREG(n, 0x02ee)
-#define REG_P_PVI_MASK(n)		PREG(n, 0x02f4)
-#define REG_P_CLK_INDEX(n)		PREG(n, 0x02fc)
-#define REG_P_FR_RATE_TYPE(n)		PREG(n, 0x02fe)
+#define REG_P_OUT_WIDTH(n)		PREG(n, 0x700002e6)
+#define REG_P_OUT_HEIGHT(n)		PREG(n, 0x700002e8)
+#define REG_P_FMT(n)			PREG(n, 0x700002ea)
+#define REG_P_MAX_OUT_RATE(n)		PREG(n, 0x700002ec)
+#define REG_P_MIN_OUT_RATE(n)		PREG(n, 0x700002ee)
+#define REG_P_PVI_MASK(n)		PREG(n, 0x700002f4)
+#define REG_P_CLK_INDEX(n)		PREG(n, 0x700002fc)
+#define REG_P_FR_RATE_TYPE(n)		PREG(n, 0x700002fe)
 #define  FR_RATE_DYNAMIC		0
 #define  FR_RATE_FIXED			1
 #define  FR_RATE_FIXED_ACCURATE		2
-#define REG_P_FR_RATE_Q_TYPE(n)		PREG(n, 0x0300)
+#define REG_P_FR_RATE_Q_TYPE(n)		PREG(n, 0x70000300)
 #define  FR_RATE_Q_BEST_FRRATE		1 /* Binning enabled */
 #define  FR_RATE_Q_BEST_QUALITY		2 /* Binning disabled */
 /* Frame period in 0.1 ms units */
-#define REG_P_MAX_FR_TIME(n)		PREG(n, 0x0302)
-#define REG_P_MIN_FR_TIME(n)		PREG(n, 0x0304)
+#define REG_P_MAX_FR_TIME(n)		PREG(n, 0x70000302)
+#define REG_P_MIN_FR_TIME(n)		PREG(n, 0x70000304)
 /* Conversion to REG_P_[MAX/MIN]_FR_TIME value; __t: time in us */
 #define  US_TO_FR_TIME(__t)		((__t) / 100)
 #define  S5K4CDGX_MIN_FR_TIME		33300  /* us */
 #define  S5K4CDGX_MAX_FR_TIME		650000 /* us */
 #define  S5K4CDGX_MAX_HIGHRES_FR_TIME	666    /* x100 us */
 /* The below 5 registers are for "device correction" values */
-#define REG_P_COLORTEMP(n)		PREG(n, 0x030c)
-#define REG_P_PREV_MIRROR(n)		PREG(n, 0x0310)
+#define REG_P_COLORTEMP(n)		PREG(n, 0x7000030c) //?
+#define REG_P_PREV_MIRROR(n)		PREG(n, 0x70000310)
+#define REG_P_CAP_MIRROR(n)		PREG(n, 0x70000312) //not used yet
 
 /* Extended image property controls */
 /* Exposure time in 10 us units */
-#define REG_SF_USR_EXPOSURE_L		0x0492
-#define REG_SF_USR_EXPOSURE_H		0x0494
-#define REG_SF_USR_EXPOSURE_CHG		0x0496
-#define REG_SF_USR_TOT_GAIN		0x0498
-#define REG_SF_USR_TOT_GAIN_CHG		0x049a
-#define REG_SF_RGAIN			0x04a0
-#define REG_SF_RGAIN_CHG		0x04a2
-#define REG_SF_GGAIN			0x04a4
-#define REG_SF_GGAIN_CHG		0x04a6
-#define REG_SF_BGAIN			0x04a8
-#define REG_SF_BGAIN_CHG		0x04aa
-#define REG_SF_FLICKER_QUANT		0x04ba
-#define REG_SF_FLICKER_QUANT_CHG	0x04bc
-
-/* Output interface (parallel/MIPI) setup */
-#define REG_OIF_EN_MIPI_LANES		0x03fa
-#define REG_OIF_EN_PACKETS		0x03fc
-#define REG_OIF_CFG_CHG			0x03fe
+#define REG_SF_USR_EXPOSURE_L		0x700004f0//?
+#define REG_SF_USR_EXPOSURE_H		0x700004f2//?
+#define REG_SF_USR_EXPOSURE_CHG		0x700004f4//?
+#define REG_SF_USR_TOT_GAIN		0x700004f6//?
+#define REG_SF_USR_TOT_GAIN_CHG		0x700004f8//?
+#define REG_SF_RGAIN			0x700004fa
+#define REG_SF_RGAIN_CHG		0x700004fc
+#define REG_SF_GGAIN			0x700004fe
+#define REG_SF_GGAIN_CHG		0x70000500
+#define REG_SF_BGAIN			0x70000502
+#define REG_SF_BGAIN_CHG		0x70000504
+#define REG_SF_FLICKER_QUANT		0x70000514
+#define REG_SF_FLICKER_QUANT_CHG	0x70000516
 
 /* Auto-algorithms enable mask */
-#define REG_DBG_AUTOALG_EN		0x0400
+#define REG_DBG_AUTOALG_EN		0x7000052e
 #define  AALG_ALL_EN_MASK		(1 << 0)
 #define  AALG_AE_EN_MASK		(1 << 1)
 #define  AALG_DIVLEI_EN_MASK		(1 << 2)
@@ -164,9 +165,11 @@ module_param(debug, int, 0644);
 #define  AALG_WRHW_EN_MASK		(1 << 7)
 
 /* Firmware revision information */
-#define REG_FW_APIVER			0x1006
-#define  S5K4CDGX_FW_APIVER		0x0001
-#define REG_FW_REVISION			0x1008
+#define S5K4CDGX_CHIP_ID		0x4cd
+#define REG_CHIP_ID			0x00000040
+#define REG_MODEL_ID			0xD000100C
+#define REG_GPIO_MODE_SEL		0xD000108E
+#define REG_GPIO_FUNC_SEL		0xD0001090
 
 /* For now we use only one user configuration register set */
 #define S5K4CDGX_MAX_PRESETS		1
@@ -269,282 +272,19 @@ struct s5k4cdgx {
 	unsigned int power;
 };
 
-static struct s5k4cdgx_regval s5k4cdgx_analog_config[] = {
-	/* Analog settings */
-/*	{ 0x112a, 0x0000 }, { 0x1132, 0x0000 },
-	{ 0x113e, 0x0000 }, { 0x115c, 0x0000 },
-	{ 0x1164, 0x0000 }, { 0x1174, 0x0000 },
-	{ 0x1178, 0x0000 }, { 0x077a, 0x0000 },
-	{ 0x077c, 0x0000 }, { 0x077e, 0x0000 },
-	{ 0x0780, 0x0000 }, { 0x0782, 0x0000 },
-	{ 0x0784, 0x0000 }, { 0x0786, 0x0000 },
-	{ 0x0788, 0x0000 }, { 0x07a2, 0x0000 },
-	{ 0x07a4, 0x0000 }, { 0x07a6, 0x0000 },
-	{ 0x07a8, 0x0000 }, { 0x07b6, 0x0000 },
-	{ 0x07b8, 0x0002 }, { 0x07ba, 0x0004 },
-	{ 0x07bc, 0x0004 }, { 0x07be, 0x0005 },
-	{ 0x07c0, 0x0005 }, { S5K4CDGX_TERM, 0 },*/
-    { 0x0116, 0x0006 },	// #senHal_ContPtrs_pSenModesRegsArray[0][0]
-    { 0x0118, 0x0006 },	// #senHal_ContPtrs_pSenModesRegsArray[0][1]
-    { 0x011A, 0x0866 },	// #senHal_ContPtrs_pSenModesRegsArray[1][0]
-    { 0x011C, 0x0866 },	// #senHal_ContPtrs_pSenModesRegsArray[1][1]
-    { 0x011E, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[2][0]
-    { 0x0120, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[2][1]
-    { 0x0122, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[3][0]
-    { 0x0124, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[3][1]
-    { 0x0126, 0x0004 },	// #senHal_ContPtrs_pSenModesRegsArray[4][0]
-    { 0x0128, 0x0004 },	// #senHal_ContPtrs_pSenModesRegsArray[4][1]
-    { 0x012A, 0x084C },	// #senHal_ContPtrs_pSenModesRegsArray[5][0]
-    { 0x012C, 0x0368 },	// #senHal_ContPtrs_pSenModesRegsArray[5][1]
-    { 0x012E, 0x0004 },	// #senHal_ContPtrs_pSenModesRegsArray[6][0]
-    { 0x0130, 0x0364 },	// #senHal_ContPtrs_pSenModesRegsArray[6][1]
-    { 0x0132, 0x084C },	// #senHal_ContPtrs_pSenModesRegsArray[7][0]
-    { 0x0134, 0x06C4 },	// #senHal_ContPtrs_pSenModesRegsArray[7][1]
-    { 0x0136, 0x001E },	// #senHal_ContPtrs_pSenModesRegsArray[8][0]
-    { 0x0138, 0x001E },	// #senHal_ContPtrs_pSenModesRegsArray[8][1]
-    { 0x013A, 0x084C },	// #senHal_ContPtrs_pSenModesRegsArray[9][0]
-    { 0x013C, 0x0364 },	// #senHal_ContPtrs_pSenModesRegsArray[9][1]
-    { 0x013E, 0x001E },	// #senHal_ContPtrs_pSenModesRegsArray[10][0]
-    { 0x0140, 0x037E },	// #senHal_ContPtrs_pSenModesRegsArray[10][1]
-    { 0x0142, 0x084C },	// #senHal_ContPtrs_pSenModesRegsArray[11][0]
-    { 0x0144, 0x06C4 },	// #senHal_ContPtrs_pSenModesRegsArray[11][1]
-    { 0x0146, 0x01FC },	// #senHal_ContPtrs_pSenModesRegsArray[12][0]
-    { 0x0148, 0x0138 },	// #senHal_ContPtrs_pSenModesRegsArray[12][1]
-    { 0x014A, 0x0256 },	// #senHal_ContPtrs_pSenModesRegsArray[13][0]
-    { 0x014C, 0x0192 },	// #senHal_ContPtrs_pSenModesRegsArray[13][1]
-    { 0x014E, 0x01FC },	// #senHal_ContPtrs_pSenModesRegsArray[14][0]
-    { 0x0150, 0x0498 },	// #senHal_ContPtrs_pSenModesRegsArray[14][1]
-    { 0x0152, 0x0256 },	// #senHal_ContPtrs_pSenModesRegsArray[15][0]
-    { 0x0154, 0x04F2 },	// #senHal_ContPtrs_pSenModesRegsArray[15][1]
-    { 0x0156, 0x0256 },	// #senHal_ContPtrs_pSenModesRegsArray[16][0]
-    { 0x0158, 0x0192 },	// #senHal_ContPtrs_pSenModesRegsArray[16][1]
-    { 0x015A, 0x084A },	// #senHal_ContPtrs_pSenModesRegsArray[17][0]
-    { 0x015C, 0x0362 },	// #senHal_ContPtrs_pSenModesRegsArray[17][1]
-    { 0x015E, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[18][0]
-    { 0x0160, 0x04F2 },	// #senHal_ContPtrs_pSenModesRegsArray[18][1]
-    { 0x0162, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[19][0]
-    { 0x0164, 0x06C2 },	// #senHal_ContPtrs_pSenModesRegsArray[19][1]
-    { 0x0166, 0x0004 },	// #senHal_ContPtrs_pSenModesRegsArray[20][0]
-    { 0x0168, 0x0004 },	// #senHal_ContPtrs_pSenModesRegsArray[20][1]
-    { 0x016A, 0x01F8 },	// #senHal_ContPtrs_pSenModesRegsArray[21][0]
-    { 0x016C, 0x0134 },	// #senHal_ContPtrs_pSenModesRegsArray[21][1]
-    { 0x016E, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[22][0]
-    { 0x0170, 0x0366 },	// #senHal_ContPtrs_pSenModesRegsArray[22][1]
-    { 0x0172, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[23][0]
-    { 0x0174, 0x0494 },	// #senHal_ContPtrs_pSenModesRegsArray[23][1]
-    { 0x0176, 0x005A },	// #senHal_ContPtrs_pSenModesRegsArray[24][0]
-    { 0x0178, 0x005A },	// #senHal_ContPtrs_pSenModesRegsArray[24][1]
-    { 0x017A, 0x00DC },	// #senHal_ContPtrs_pSenModesRegsArray[25][0]
-    { 0x017C, 0x00DC },	// #senHal_ContPtrs_pSenModesRegsArray[25][1]
-    { 0x017E, 0x025E },	// #senHal_ContPtrs_pSenModesRegsArray[26][0]
-    { 0x0180, 0x0192 },	// #senHal_ContPtrs_pSenModesRegsArray[26][1]
-    { 0x0182, 0x029A },	// #senHal_ContPtrs_pSenModesRegsArray[27][0]
-    { 0x0184, 0x01D6 },	// #senHal_ContPtrs_pSenModesRegsArray[27][1]
-    { 0x0186, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[28][0]
-    { 0x0188, 0x0380 },	// #senHal_ContPtrs_pSenModesRegsArray[28][1]
-    { 0x018A, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[29][0]
-    { 0x018C, 0x0402 },	// #senHal_ContPtrs_pSenModesRegsArray[29][1]
-    { 0x018E, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[30][0]
-    { 0x0190, 0x04FA },	// #senHal_ContPtrs_pSenModesRegsArray[30][1]
-    { 0x0192, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[31][0]
-    { 0x0194, 0x0536 },	// #senHal_ContPtrs_pSenModesRegsArray[31][1]
-    { 0x0196, 0x005A },	// #senHal_ContPtrs_pSenModesRegsArray[32][0]
-    { 0x0198, 0x005A },	// #senHal_ContPtrs_pSenModesRegsArray[32][1]
-    { 0x019A, 0x007A },	// #senHal_ContPtrs_pSenModesRegsArray[33][0]
-    { 0x019C, 0x007A },	// #senHal_ContPtrs_pSenModesRegsArray[33][1]
-    { 0x019E, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[34][0]
-    { 0x01A0, 0x0380 },	// #senHal_ContPtrs_pSenModesRegsArray[34][1]
-    { 0x01A2, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[35][0]
-    { 0x01A4, 0x03DA },	// #senHal_ContPtrs_pSenModesRegsArray[35][1]
-    { 0x01A6, 0x005A },	// #senHal_ContPtrs_pSenModesRegsArray[36][0]
-    { 0x01A8, 0x005A },	// #senHal_ContPtrs_pSenModesRegsArray[36][1]
-    { 0x01AA, 0x00DC },	// #senHal_ContPtrs_pSenModesRegsArray[37][0]
-    { 0x01AC, 0x00DC },	// #senHal_ContPtrs_pSenModesRegsArray[37][1]
-    { 0x01AE, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[38][0]
-    { 0x01B0, 0x0380 },	// #senHal_ContPtrs_pSenModesRegsArray[38][1]
-    { 0x01B2, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[39][0]
-    { 0x01B4, 0x0402 },	// #senHal_ContPtrs_pSenModesRegsArray[39][1]
-    { 0x01B6, 0x005A },	// #senHal_ContPtrs_pSenModesRegsArray[40][0]
-    { 0x01B8, 0x005A },	// #senHal_ContPtrs_pSenModesRegsArray[40][1]
-    { 0x01BA, 0x01F8 },	// #senHal_ContPtrs_pSenModesRegsArray[41][0]
-    { 0x01BC, 0x0134 },	// #senHal_ContPtrs_pSenModesRegsArray[41][1]
-    { 0x01BE, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[42][0]
-    { 0x01C0, 0x0380 },	// #senHal_ContPtrs_pSenModesRegsArray[42][1]
-    { 0x01C2, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[43][0]
-    { 0x01C4, 0x0494 },	// #senHal_ContPtrs_pSenModesRegsArray[43][1]
-    { 0x01C6, 0x02A2 },	// #senHal_ContPtrs_pSenModesRegsArray[44][0]
-    { 0x01C8, 0x01DE },	// #senHal_ContPtrs_pSenModesRegsArray[44][1]
-    { 0x01CA, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[45][0]
-    { 0x01CC, 0x0366 },	// #senHal_ContPtrs_pSenModesRegsArray[45][1]
-    { 0x01CE, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[46][0]
-    { 0x01D0, 0x053E },	// #senHal_ContPtrs_pSenModesRegsArray[46][1]
-    { 0x01D2, 0x00E4 },	// #senHal_ContPtrs_pSenModesRegsArray[47][0]
-    { 0x01D4, 0x00E4 },	// #senHal_ContPtrs_pSenModesRegsArray[47][1]
-    { 0x01D6, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[48][0]
-    { 0x01D8, 0x0366 },	// #senHal_ContPtrs_pSenModesRegsArray[48][1]
-    { 0x01DA, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[49][0]
-    { 0x01DC, 0x040A },	// #senHal_ContPtrs_pSenModesRegsArray[49][1]
-    { 0x01DE, 0x00E4 },	// #senHal_ContPtrs_pSenModesRegsArray[50][0]
-    { 0x01E0, 0x00E4 },	// #senHal_ContPtrs_pSenModesRegsArray[50][1]
-    { 0x01E2, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[51][0]
-    { 0x01E4, 0x0366 },	// #senHal_ContPtrs_pSenModesRegsArray[51][1]
-    { 0x01E6, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[52][0]
-    { 0x01E8, 0x040A },	// #senHal_ContPtrs_pSenModesRegsArray[52][1]
-    { 0x01EA, 0x00F0 },	// #senHal_ContPtrs_pSenModesRegsArray[53][0]
-    { 0x01EC, 0x00EF },	// #senHal_ContPtrs_pSenModesRegsArray[53][1]
-    { 0x01EE, 0x01F0 },	// #senHal_ContPtrs_pSenModesRegsArray[54][0]
-    { 0x01F0, 0x012F },	// #senHal_ContPtrs_pSenModesRegsArray[54][1]
-    { 0x01F2, 0x02C2 },	// #senHal_ContPtrs_pSenModesRegsArray[55][0]
-    { 0x01F4, 0x01FD },	// #senHal_ContPtrs_pSenModesRegsArray[55][1]
-    { 0x01F6, 0x0842 },	// #senHal_ContPtrs_pSenModesRegsArray[56][0]
-    { 0x01F8, 0x035D },	// #senHal_ContPtrs_pSenModesRegsArray[56][1]
-    { 0x01FA, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[57][0]
-    { 0x01FC, 0x044F },	// #senHal_ContPtrs_pSenModesRegsArray[57][1]
-    { 0x01FE, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[58][0]
-    { 0x0200, 0x048F },	// #senHal_ContPtrs_pSenModesRegsArray[58][1]
-    { 0x0202, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[59][0]
-    { 0x0204, 0x055D },	// #senHal_ContPtrs_pSenModesRegsArray[59][1]
-    { 0x0206, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[60][0]
-    { 0x0208, 0x06BD },	// #senHal_ContPtrs_pSenModesRegsArray[60][1]
-    { 0x020A, 0x01FE },	// #senHal_ContPtrs_pSenModesRegsArray[61][0]
-    { 0x020C, 0x013A },	// #senHal_ContPtrs_pSenModesRegsArray[61][1]
-    { 0x020E, 0x022A },	// #senHal_ContPtrs_pSenModesRegsArray[62][0]
-    { 0x0210, 0x0166 },	// #senHal_ContPtrs_pSenModesRegsArray[62][1]
-    { 0x0212, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[63][0]
-    { 0x0214, 0x0362 },	// #senHal_ContPtrs_pSenModesRegsArray[63][1]
-    { 0x0216, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[64][0]
-    { 0x0218, 0x0378 },	// #senHal_ContPtrs_pSenModesRegsArray[64][1]
-    { 0x021A, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[65][0]
-    { 0x021C, 0x049A },	// #senHal_ContPtrs_pSenModesRegsArray[65][1]
-    { 0x021E, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[66][0]
-    { 0x0220, 0x04C6 },	// #senHal_ContPtrs_pSenModesRegsArray[66][1]
-    { 0x0222, 0x020A },	// #senHal_ContPtrs_pSenModesRegsArray[67][0]
-    { 0x0224, 0x0146 },	// #senHal_ContPtrs_pSenModesRegsArray[67][1]
-    { 0x0226, 0x023E },	// #senHal_ContPtrs_pSenModesRegsArray[68][0]
-    { 0x0228, 0x017A },	// #senHal_ContPtrs_pSenModesRegsArray[68][1]
-    { 0x022A, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[69][0]
-    { 0x022C, 0x0368 },	// #senHal_ContPtrs_pSenModesRegsArray[69][1]
-    { 0x022E, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[70][0]
-    { 0x0230, 0x037C },	// #senHal_ContPtrs_pSenModesRegsArray[70][1]
-    { 0x0232, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[71][0]
-    { 0x0234, 0x04A6 },	// #senHal_ContPtrs_pSenModesRegsArray[71][1]
-    { 0x0236, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[72][0]
-    { 0x0238, 0x04DA },	// #senHal_ContPtrs_pSenModesRegsArray[72][1]
-    { 0x023A, 0x0216 },	// #senHal_ContPtrs_pSenModesRegsArray[73][0]
-    { 0x023C, 0x0152 },	// #senHal_ContPtrs_pSenModesRegsArray[73][1]
-    { 0x023E, 0x023E },	// #senHal_ContPtrs_pSenModesRegsArray[74][0]
-    { 0x0240, 0x017A },	// #senHal_ContPtrs_pSenModesRegsArray[74][1]
-    { 0x0242, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[75][0]
-    { 0x0244, 0x036C },	// #senHal_ContPtrs_pSenModesRegsArray[75][1]
-    { 0x0246, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[76][0]
-    { 0x0248, 0x037C },	// #senHal_ContPtrs_pSenModesRegsArray[76][1]
-    { 0x024A, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[77][0]
-    { 0x024C, 0x04B2 },	// #senHal_ContPtrs_pSenModesRegsArray[77][1]
-    { 0x024E, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[78][0]
-    { 0x0250, 0x04DA },	// #senHal_ContPtrs_pSenModesRegsArray[78][1]
-    { 0x0252, 0x0004 },	// #senHal_ContPtrs_pSenModesRegsArray[79][0]
-    { 0x0254, 0x0004 },	// #senHal_ContPtrs_pSenModesRegsArray[79][1]
-    { 0x0256, 0x0011 },	// #senHal_ContPtrs_pSenModesRegsArray[80][0]
-    { 0x0258, 0x0011 },	// #senHal_ContPtrs_pSenModesRegsArray[80][1]
-    { 0x025A, 0x0004 },	// #senHal_ContPtrs_pSenModesRegsArray[81][0]
-    { 0x025C, 0x0004 },	// #senHal_ContPtrs_pSenModesRegsArray[81][1]
-    { 0x025E, 0x0011 },	// #senHal_ContPtrs_pSenModesRegsArray[82][0]
-    { 0x0260, 0x0011 },	// #senHal_ContPtrs_pSenModesRegsArray[82][1]
-    { 0x0262, 0x01F8 },	// #senHal_ContPtrs_pSenModesRegsArray[83][0]
-    { 0x0264, 0x0134 },	// #senHal_ContPtrs_pSenModesRegsArray[83][1]
-    { 0x0266, 0x0200 },	// #senHal_ContPtrs_pSenModesRegsArray[84][0]
-    { 0x0268, 0x013C },	// #senHal_ContPtrs_pSenModesRegsArray[84][1]
-    { 0x026A, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[85][0]
-    { 0x026C, 0x0362 },	// #senHal_ContPtrs_pSenModesRegsArray[85][1]
-    { 0x026E, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[86][0]
-    { 0x0270, 0x036A },	// #senHal_ContPtrs_pSenModesRegsArray[86][1]
-    { 0x0272, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[87][0]
-    { 0x0274, 0x0494 },	// #senHal_ContPtrs_pSenModesRegsArray[87][1]
-    { 0x0276, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[88][0]
-    { 0x0278, 0x049C },	// #senHal_ContPtrs_pSenModesRegsArray[88][1]
-    { 0x027A, 0x00EE },	// #senHal_ContPtrs_pSenModesRegsArray[89][0]
-    { 0x027C, 0x00EE },	// #senHal_ContPtrs_pSenModesRegsArray[89][1]
-    { 0x027E, 0x01F6 },	// #senHal_ContPtrs_pSenModesRegsArray[90][0]
-    { 0x0280, 0x0132 },	// #senHal_ContPtrs_pSenModesRegsArray[90][1]
-    { 0x0282, 0x02C0 },	// #senHal_ContPtrs_pSenModesRegsArray[91][0]
-    { 0x0284, 0x01FC },	// #senHal_ContPtrs_pSenModesRegsArray[91][1]
-    { 0x0286, 0x0848 },	// #senHal_ContPtrs_pSenModesRegsArray[92][0]
-    { 0x0288, 0x0360 },	// #senHal_ContPtrs_pSenModesRegsArray[92][1]
-    { 0x028A, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[93][0]
-    { 0x028C, 0x044E },	// #senHal_ContPtrs_pSenModesRegsArray[93][1]
-    { 0x028E, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[94][0]
-    { 0x0290, 0x0492 },	// #senHal_ContPtrs_pSenModesRegsArray[94][1]
-    { 0x0292, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[95][0]
-    { 0x0294, 0x055C },	// #senHal_ContPtrs_pSenModesRegsArray[95][1]
-    { 0x0296, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[96][0]
-    { 0x0298, 0x06C0 },	// #senHal_ContPtrs_pSenModesRegsArray[96][1]
-    { 0x029A, 0x01F8 },	// #senHal_ContPtrs_pSenModesRegsArray[97][0]
-    { 0x029C, 0x0134 },	// #senHal_ContPtrs_pSenModesRegsArray[97][1]
-    { 0x029E, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[98][0]
-    { 0x02A0, 0x0362 },	// #senHal_ContPtrs_pSenModesRegsArray[98][1]
-    { 0x02A2, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[99][0]
-    { 0x02A4, 0x0494 },	// #senHal_ContPtrs_pSenModesRegsArray[99][1]
-    { 0x02A6, 0x0008 },	// #senHal_ContPtrs_pSenModesRegsArray[100][0]
-    { 0x02A8, 0x0008 },	// #senHal_ContPtrs_pSenModesRegsArray[100][1]
-    { 0x02AA, 0x2D90 },	// #senHal_ContPtrs_pSenModesRegsArray[101][0]
-    { 0x02AC, 0x2D90 },	// #senHal_ContPtrs_pSenModesRegsArray[101][1]
-    { 0x02AE, 0x6531 },	// #senHal_ContPtrs_pSenModesRegsArray[102][0]
-    { 0x02B0, 0x6531 },	// #senHal_ContPtrs_pSenModesRegsArray[102][1]
-    { 0x02B2, 0x3E5A },	// #senHal_ContPtrs_pSenModesRegsArray[103][0]
-    { 0x02B4, 0x3E5A },	// #senHal_ContPtrs_pSenModesRegsArray[103][1]
-    { 0x02B6, 0x1422 },	// #senHal_ContPtrs_pSenModesRegsArray[104][0]
-    { 0x02B8, 0x1422 },	// #senHal_ContPtrs_pSenModesRegsArray[104][1]
-    { 0x02BA, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[105][0]
-    { 0x02BC, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[105][1]
-    { 0x02BE, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[106][0]
-    { 0x02C0, 0x0000 },	// #senHal_ContPtrs_pSenModesRegsArray[106][1]
-    { 0x1320, 0xAAF0 },   // #gisp_dadlc_config
-    { 0x0B32, 0xFFFF },   // #setot_usSetRomWaitStateThreshold4KHz
-    { 0x13EE, 0x0001 },   // #pll_uMaxDivFreqMhz
-    { 0x0B2C, 0x0EA6 },   // #setot_uOnlineClocksDiv40
-    { 0x1368, 0x2000 },	// #gisp_msm_uGainNoBin[0]
-    { 0x136A, 0x2000 },	// #gisp_msm_uGainNoBin[1]
-    { 0x136C, 0x2000 },	// #gisp_msm_uGainNoBin[2]
-    { 0x136E, 0x2000 },	// #gisp_msm_uGainNoBin[3]
-    { 0x1370, 0x2000 },	// #gisp_msm_uGainNoBin[4]
-    { 0x1372, 0x2000 },	// #gisp_msm_uGainNoBin[5]
-    { 0x1374, 0x2000 },	// #gisp_msm_uGainNoBin[6]
-    { 0x1376, 0x2000 },	// #gisp_msm_uGainNoBin[7]
-    { 0x1378, 0x2000 },	// #gisp_msm_uGainBin[0]
-    { 0x137A, 0x2000 },	// #gisp_msm_uGainBin[1]
-    { 0x137C, 0x2000 },	// #gisp_msm_uGainBin[2]
-    { 0x137E, 0x2000 },	// #gisp_msm_uGainBin[3]
-    { 0x1152, 0x0001 },	// #senHal_NExpLinesCheckFine
-    { 0x05B2, 0x0007 },   // #skl_usConfigStbySettings
-    { 0x323C, 0x0637 },   // #TuneHWRegs_gtg_aig_ref_ramp_1
-    { 0x114E, 0x0AC0 },   // #SenHal_ExpMinPixles : 2752 (added 0730)
-    { 0x1390, 0x0100 },	// #gisp_msm_NonLinearOfsInput_0_
-    { 0x1392, 0x0200 },	// #gisp_msm_NonLinearOfsInput_1_
-    { 0x1394, 0x0300 },	// #gisp_msm_NonLinearOfsInput_2_
-    { 0x1396, 0x0400 },	// #gisp_msm_NonLinearOfsInput_3_
-    { 0x1398, 0x0500 },	// #gisp_msm_NonLinearOfsInput_4_
-    { 0x139A, 0x0800 },	// #gisp_msm_NonLinearOfsInput_5_
-    { 0x139C, 0x0000 },	// #gisp_msm_NonLinearOfsOutput_0_
-    { 0x139E, 0x0000 },	// #gisp_msm_NonLinearOfsOutput_1_
-    { 0x13A0, 0x0001 },	// #gisp_msm_NonLinearOfsOutput_2_
-    { 0x13A2, 0x0002 },	// #gisp_msm_NonLinearOfsOutput_3_
-    { 0x13A4, 0x0003 },	// #gisp_msm_NonLinearOfsOutput_4_
-    { 0x13A6, 0x0002 },	// #gisp_msm_NonLinearOfsOutput_5_
-    { S5K4CDGX_TERM, 0 },
-};
-
 /* TODO: Add RGB888 and Bayer format */
 static const struct s5k4cdgx_pixfmt s5k4cdgx_formats[] = {
 	{ V4L2_MBUS_FMT_YUYV8_2X8, V4L2_COLORSPACE_JPEG, 5 },
 	/* range 16-240 */
-	{ V4L2_MBUS_FMT_YUYV8_2X8,	V4L2_COLORSPACE_REC709,	6 },
-	{ V4L2_MBUS_FMT_RGB565_2X8_BE,	V4L2_COLORSPACE_JPEG,	0 },
+//	{ V4L2_MBUS_FMT_YUYV8_2X8,	V4L2_COLORSPACE_REC709,	6 },
+//	{ V4L2_MBUS_FMT_RGB565_2X8_BE,	V4L2_COLORSPACE_JPEG,	0 },
 };
 
 static const struct v4l2_frmsize_discrete s5k4cdgx_frame_sizes[] = {
-	//{1280, 1024},
-	//{1280, 720},
-	//{800, 600}, /* SVGA */
+	{2048, 1536},
+	{1280, 1024},
+	{1280, 720},
+	{800, 600}, /* SVGA */
 	{640, 480}, /* VGA */
 	{352, 288}, /* CIF */
 	{320, 240}, /* QVGA */
@@ -552,18 +292,15 @@ static const struct v4l2_frmsize_discrete s5k4cdgx_frame_sizes[] = {
 };
 
 static const struct s5k4cdgx_interval s5k4cdgx_intervals[] = {
-	//{ 1000, 10, {10000, 1000000}, {1280, 1024} }, /* 10 fps */
-	//{ 666, 15, {15000, 1000000}, {1280, 1024} }, /* 15 fps */
-	//{ 500, 20, {20000, 1000000}, {1280, 720} },  /* 20 fps, HD720 */
-	//{ 500, 20, {20000, 1000000}, {800, 600} },
-//	{ 400, 25, {25000, 1000000}, {640, 480} },   /* 25 fps */
-//	{ 333, 30, {33300, 1000000}, {640, 480} },   /* 30 fps, VGA */
-//	{ 333, 30, {33300, 1000000}, {352, 288} },   /* CIF */
-//	{ 333, 30, {33300, 1000000}, {320, 240} },   /* QVGA */
-//	{ 333, 30, {33300, 1000000}, {176, 144} },   /* QCIF */
-	{ 1401, 7, {140100, 1000000}, {2048, 1536} }, /*  7.138 fps */
-	{ 666, 15, { 66600, 1000000}, {2048, 1536} }, /* 15.015 fps */
-	{ 334, 30, { 33400, 1000000}, {640,  480 } }, /* 29.940 fps */
+	{ 1401, 7, {7138, 1000000}, {2048, 1536} }, /*  7.138 fps */
+	{ 666, 15, {15015, 1000000}, {2048, 1536} }, /* 15.015 fps */
+	{ 500, 20, {20000, 1000000}, {1280, 720} },  /* 20 fps, HD720 */
+	{ 500, 20, {20000, 1000000}, {800, 600} },
+	{ 400, 25, {25000, 1000000}, {640, 480} },   /* 25 fps */
+	{ 333, 30, {33300, 1000000}, {640, 480} }, /* 29.940 fps */
+	{ 333, 30, {33300, 1000000}, {352, 288} },   /* CIF */
+	{ 333, 30, {33300, 1000000}, {320, 240} },   /* QVGA */
+	{ 333, 30, {33300, 1000000}, {176, 144} },   /* QCIF */
 };
 
 #define S5K4CDGX_INTERVAL_DEF_INDEX 1
@@ -617,7 +354,7 @@ static int s5k4cdgx_i2c_read(struct i2c_client *client, u16 addr, u16 *val)
 	ret = i2c_transfer(client->adapter, msg, 2);
 	*val = be16_to_cpu(*((u16 *)rbuf));
 
-	v4l2_dbg(3, debug, client, "i2c_read: 0x%04X : 0x%04x\n", addr, *val);
+	v4l2_dbg(3, debug, client, "i2c_read: 0x%04X : 0x%04x, i2ctrans_ret: %d\n", addr, *val, ret);
 
 	return ret == 2 ? 0 : ret;
 }
@@ -632,13 +369,20 @@ static int s5k4cdgx_i2c_write(struct i2c_client *client, u16 addr, u16 val)
 	return ret == 4 ? 0 : ret;
 }
 
-/* The command register write, assumes Command_Wr_addH = 0x7000. */
-static int s5k4cdgx_write(struct i2c_client *c, u16 addr, u16 val)
+static int s5k4cdgx_write(struct i2c_client *client, u32 addr, u16 val)
 {
-	int ret = s5k4cdgx_i2c_write(c, REG_CMDWR_ADDRL, addr);
-	if (ret)
-		return ret;
-	return s5k4cdgx_i2c_write(c, REG_CMDBUF0_ADDR, val);
+	u16 high = addr >> 16, low =  addr & 0xffff;
+	int ret;
+	
+	v4l2_dbg(3, debug, client, "write: 0x%08x : 0x%04x\n", addr, val);
+	
+	ret = s5k4cdgx_i2c_write(client, REG_CMDWR_ADDRH, high);
+	if (!ret)
+		ret = s5k4cdgx_i2c_write(client, REG_CMDWR_ADDRL, low);
+	if (!ret)
+		ret = s5k4cdgx_i2c_write(client, REG_CMDBUF0_ADDR, val);
+		
+	return ret;
 }
 
 static int s5k4cdgx_write_regs(struct v4l2_subdev *sd,
@@ -693,49 +437,27 @@ static int s5k4cdgx_write_regs(struct v4l2_subdev *sd,
 	return 0;
 }
 
-/* The command register read, assumes Command_Rd_addH = 0x7000. */
-static int s5k4cdgx_read(struct i2c_client *client, u16 addr, u16 *val)
+static int s5k4cdgx_read(struct i2c_client *client, u32 addr, u16 *val)
 {
-	int ret = s5k4cdgx_i2c_write(client, REG_CMDRD_ADDRL, addr);
+	u16 high = addr >> 16, low =  addr & 0xffff;
+	int ret;
+	
+	ret = s5k4cdgx_i2c_write(client, REG_CMDRD_ADDRH, high);
+	if (!ret)
+		ret = s5k4cdgx_i2c_write(client, REG_CMDRD_ADDRL, low);
+	if (!ret)
+		ret = s5k4cdgx_i2c_read(client, REG_CMDBUF0_ADDR, val);
 	if (ret)
-		return ret;
-	return s5k4cdgx_i2c_read(client, REG_CMDBUF0_ADDR, val);
-}
-
-static int s5k4cdgx_write_array(struct v4l2_subdev *sd,
-			      const struct s5k4cdgx_regval *msg)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	u16 addr_incr = 0;
-	int ret = 0;
-
-	while (msg->addr != S5K4CDGX_TERM) {
-		if (addr_incr != 2)
-			ret = s5k4cdgx_i2c_write(client, REG_CMDWR_ADDRL,
-					       msg->addr);
-		if (ret)
-			break;
-		ret = s5k4cdgx_i2c_write(client, REG_CMDBUF0_ADDR, msg->val);
-		if (ret)
-			break;
-		/* Assume that msg->addr is always less than 0xfffc */
-		addr_incr = (msg + 1)->addr - msg->addr;
-		msg++;
-	}
-
+		dev_err(&client->dev, "Failed to execute read command 0x%x\n",val);
+		
 	return ret;
 }
 
-/* Configure the AHB high address bytes for GTG registers access */
-static int s5k4cdgx_set_ahb_address(struct i2c_client *client)
+static int s5k4cdgx_set_arm_go(struct i2c_client *client)
 {
-	int ret = s5k4cdgx_i2c_write(client, AHB_MSB_ADDR_PTR, GEN_REG_OFFSH);
-	if (ret < 0)
-		return ret;
-//	ret = s5k4cdgx_i2c_write(client, REG_CMDRD_ADDRH, HOST_SWIF_OFFSH);
-//	if (ret)
-//		return ret;
-//	return s5k4cdgx_i2c_write(client, REG_CMDWR_ADDRH, HOST_SWIF_OFFSH);
+        int ret = s5k4cdgx_i2c_write(client, AHB_MSB_ADDR_PTR, GEN_REG_OFFSH);
+        if (ret < 0)
+                return ret;
 
     /*
      * sw_reset is activated to put device into idle status
@@ -750,6 +472,19 @@ static int s5k4cdgx_set_ahb_address(struct i2c_client *client)
     /* Halt ARM CPU */
     return s5k4cdgx_i2c_write(client, 0x0014, 0x0001);
 
+}
+
+/* Configure the AHB high address bytes for GTG registers access */
+static int s5k4cdgx_set_ahb_address(struct i2c_client *client)
+{
+	int ret = s5k4cdgx_i2c_write(client, AHB_MSB_ADDR_PTR, GEN_REG_OFFSH);
+	if (ret < 0)
+		return ret;
+	
+	ret = s5k4cdgx_i2c_write(client, REG_CMDRD_ADDRH, HOST_SWIF_OFFSH);
+	if (ret)
+		return ret;
+	return s5k4cdgx_i2c_write(client, REG_CMDWR_ADDRH, HOST_SWIF_OFFSH);
 }
 
 /**
@@ -798,6 +533,8 @@ static int s5k4cdgx_configure_pixel_clocks(struct s5k4cdgx *s5k4cdgx)
                                    s5k4cdgx->pclk_fmax);*/
 	if (!ret)
 		ret = s5k4cdgx_write(c, REG_I_INIT_PARAMS_UPDATED, 1);
+
+	v4l2_info(&s5k4cdgx->sd, "Call read reg from s5k4cdgx_configure_pixel_clocks");
 	if (!ret)
 		ret = s5k4cdgx_read(c, REG_I_ERROR_INFO, &status);
 
@@ -828,6 +565,7 @@ static int s5k4cdgx_set_awb(struct s5k4cdgx *s5k4cdgx, int awb)
 	struct s5k4cdgx_ctrls *ctrls = &s5k4cdgx->ctrls;
 	u16 reg;
 
+	v4l2_info(&s5k4cdgx->sd, "Call read reg from set_awb");
 	int ret = s5k4cdgx_read(c, REG_DBG_AUTOALG_EN, &reg);
 
 	if (!ret && !awb) {
@@ -883,6 +621,7 @@ static int s5k4cdgx_set_auto_exposure(struct s5k4cdgx *s5k4cdgx, int value)
 	unsigned int exp_time = s5k4cdgx->ctrls.exposure->val;
 	u16 auto_alg;
 
+	v4l2_info(&s5k4cdgx->sd, "Call read reg from set_auto_exposure");
 	int ret = s5k4cdgx_read(c, REG_DBG_AUTOALG_EN, &auto_alg);
 	if (ret)
 		return ret;
@@ -911,9 +650,12 @@ static int s5k4cdgx_set_anti_flicker(struct s5k4cdgx *s5k4cdgx, int value)
 	u16 auto_alg;
 	int ret;
 
+	v4l2_info(&s5k4cdgx->sd, "Call read reg from set_anti_flicker");
 	ret = s5k4cdgx_read(client, REG_DBG_AUTOALG_EN, &auto_alg);
-	if (ret)
-		return ret;
+	if (ret) {
+		v4l2_err(&s5k4cdgx->sd, "[S5K4CDGX] cannot read REG_DBG_AUTOALG_EN");
+		//return ret;
+	}
 
 	if (value == V4L2_CID_POWER_LINE_FREQUENCY_AUTO) {
 		auto_alg |= AALG_FLICKER_EN_MASK;
@@ -955,10 +697,19 @@ static int s5k4cdgx_set_colorfx(struct s5k4cdgx *s5k4cdgx, int val)
 
 static int s5k4cdgx_preview_config_status(struct i2c_client *client)
 {
+	int ret;
 	u16 error = 0;
-	int ret = s5k4cdgx_read(client, REG_G_PREV_CFG_ERROR, &error);
 
-	v4l2_dbg(1, debug, client, "error: 0x%x (%d)\n", error, ret);
+	ret = s5k4cdgx_write(client, REG_I_DBG_REINITCMD, 1);
+	if (!ret)
+	    ret = s5k4cdgx_write(client, REG_I_DBG_REINITCMD, 1);
+	if (!ret)
+	    ret = s5k4cdgx_write(client, REG_I_DBG_REINITCMD, 1);
+
+	v4l2_info(client, "Call read reg from preview_config_status");
+	ret = s5k4cdgx_read(client, REG_G_PREV_CFG_ERROR, &error);
+
+	v4l2_dbg(1, debug, client, "preview config status error: 0x%x (%d)\n", error, ret);
 	return ret ? ret : (error ? -EINVAL : 0);
 }
 
@@ -989,6 +740,9 @@ static int s5k4cdgx_set_output_framefmt(struct s5k4cdgx *s5k4cdgx,
 	if (!ret)
 		ret = s5k4cdgx_write(client, REG_P_FMT(preset->index),
 				   s5k4cdgx_formats[fmt_index].reg_p_fmt);
+        if (!ret)
+                ret = s5k4cdgx_write(client, REG_I_INIT_PARAMS_UPDATED, 1);
+
 	return ret;
 }
 
@@ -1013,36 +767,6 @@ static int s5k4cdgx_set_input_params(struct s5k4cdgx *s5k4cdgx)
 	return ret;
 }
 
-/**
- * s5k4cdgx_configure_video_bus - configure the video output interface
- * @bus_type: video bus type: parallel or MIPI-CSI
- * @nlanes: number of MIPI lanes to be used (MIPI-CSI only)
- *
- * Note: Only parallel bus operation has been tested.
- */
-static int s5k4cdgx_configure_video_bus(struct s5k4cdgx *s5k4cdgx,
-				      enum v4l2_mbus_type bus_type, int nlanes)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&s5k4cdgx->sd);
-	u16 cfg = 0;
-	int ret;
-
-	/*
-	 * TODO: The sensor is supposed to support BT.601 and BT.656
-	 * but there is nothing indicating how to switch between both
-	 * in the datasheet. For now default BT.601 interface is assumed.
-	 */
-	if (bus_type == V4L2_MBUS_CSI2)
-		cfg = nlanes;
-	else if (bus_type != V4L2_MBUS_PARALLEL)
-		return -EINVAL;
-
-	ret = s5k4cdgx_write(client, REG_OIF_EN_MIPI_LANES, cfg);
-	if (ret)
-		return ret;
-	return s5k4cdgx_write(client, REG_OIF_CFG_CHG, 1);
-}
-
 /* This function should be called when switching to new user configuration set*/
 static int s5k4cdgx_new_config_sync(struct i2c_client *client, int timeout,
 				  int cid)
@@ -1060,6 +784,7 @@ static int s5k4cdgx_new_config_sync(struct i2c_client *client, int timeout,
 		return ret;
 
 	while (ret >= 0 && time_is_after_jiffies(end)) {
+		v4l2_info(client, "Call read reg from new_config_sync");
 		ret = s5k4cdgx_read(client, REG_G_NEW_CFG_SYNC, &reg);
 		if (!reg)
 			return 0;
@@ -1088,6 +813,9 @@ static int s5k4cdgx_set_prev_config(struct s5k4cdgx *s5k4cdgx,
 		frame_rate_q = FR_RATE_Q_BEST_QUALITY;
 
 	ret = s5k4cdgx_set_output_framefmt(s5k4cdgx, preset);
+	if (!ret)
+        ret = s5k4cdgx_write(client, REG_P_PVI_MASK(idx),
+					0x42);
 	if (!ret)
 		ret = s5k4cdgx_write(client, REG_P_MAX_OUT_RATE(idx),
 				   s5k4cdgx->pclk_fmax);
@@ -1138,30 +866,131 @@ static int s5k4cdgx_initialize_isp(struct v4l2_subdev *sd)
 	s5k4cdgx->apply_crop = 1;
 	s5k4cdgx->apply_cfg = 1;
 
+	ret = s5k4cdgx_set_arm_go(client);
+	if (ret)
+		return ret;
+
 	ret = s5k4cdgx_set_ahb_address(client);
 	if (ret)
 		return ret;
 
 	msleep(100);
-
-	// Do not call configure video bus for now since s5k4cdgx do not have these regs
-	//ret = s5k4cdgx_configure_video_bus(s5k4cdgx, s5k4cdgx->bus_type,
-	//				 s5k4cdgx->mipi_lanes);
-	//if (ret)
-	//	return ret;
-    
-    ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_config1, ARRAY_SIZE(s5k4cdgx_init_reg_config1));
-    if (ret)
+ 
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_io_driving_current, ARRAY_SIZE(s5k4cdgx_init_reg_io_driving_current));
+	if (ret) {
+		v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for IO Driving Current\n", __func__);
 		return ret;
+	}
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_trap_and_patch, ARRAY_SIZE(s5k4cdgx_init_reg_trap_and_patch));
+	if (ret) {
+		v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for Trap&Patch\n", __func__);
+		return ret;
+	}
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_af, ARRAY_SIZE(s5k4cdgx_init_reg_af));
+	if (ret) {
+		v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for AF\n", __func__);
+		return ret;
+	}
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_factory, ARRAY_SIZE(s5k4cdgx_init_reg_factory));
+	if (ret) {
+		v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for CIS/APS/Analog\n", __func__);
+		return ret;
+	}
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_frame_rate, ARRAY_SIZE(s5k4cdgx_init_reg_frame_rate));
+	if (ret) {
+		v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for Frame Rate\n", __func__);
+		return ret;
+	}
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_pll, ARRAY_SIZE(s5k4cdgx_init_reg_pll));
+	if (ret) {
+		v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for PLL\n", __func__);
+		return ret;
+	}
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_preview_conf0, ARRAY_SIZE(s5k4cdgx_init_preview_conf0));
+	if (ret) {
+		v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for Preview Configuration 0\n", __func__);
+		return ret;
+	}
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_capture_conf0, ARRAY_SIZE(s5k4cdgx_init_capture_conf0));
+	if (ret) {
+		v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for Capture Configuration 0\n", __func__);
+		return ret;
+	}	
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_config1, ARRAY_SIZE(s5k4cdgx_init_reg_config1));
+	if (ret) {
+		v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg 1\n", __func__);
+		return ret;
+	}
 
 	msleep(10);	
-	//ret = s5k4cdgx_write_array(sd, s5k4cdgx_analog_config);
-	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_config2, ARRAY_SIZE(s5k4cdgx_init_reg_config2));
-	if (ret)
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_jpeg, ARRAY_SIZE(s5k4cdgx_init_reg_jpeg));
+	if (ret) {
+        v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for JPEG\n", __func__);
 		return ret;
+	}
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_gas, ARRAY_SIZE(s5k4cdgx_init_reg_gas));
+	if (ret) {
+        v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for GAS (Grid Anti-shading)\n", __func__);
+		return ret;
+	}
+
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_ccm, ARRAY_SIZE(s5k4cdgx_init_reg_ccm));
+	if (ret) {
+        v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for CCM\n", __func__);
+		return ret;
+	}	
+
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_awb, ARRAY_SIZE(s5k4cdgx_init_reg_awb));
+	if (ret) {
+        v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for AWB\n", __func__);
+		return ret;
+	}	
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_ae, ARRAY_SIZE(s5k4cdgx_init_reg_ae));
+	if (ret) {
+        v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for AE\n", __func__);
+		return ret;
+	}	
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_gamma_lut, ARRAY_SIZE(s5k4cdgx_init_reg_gamma_lut));
+	if (ret) {
+        v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for Gamma LUT\n", __func__);
+		return ret;
+	}
+	
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_afit, ARRAY_SIZE(s5k4cdgx_init_reg_afit));
+	if (ret) {
+        v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg for AFIT table\n", __func__);
+		return ret;
+	}
+	
+	// Update changed registers in init reg config2 sequence
+	ret = s5k4cdgx_write_regs(sd, s5k4cdgx_init_reg_config2, ARRAY_SIZE(s5k4cdgx_init_reg_config2));
+	if (ret) {
+        v4l2_err(sd, "[S5K4CDGX] %s function err in writing init reg 2\n", __func__);
+		return ret;
+	}
+	
+	
+
 	msleep(20);
 
-	//return s5k4cdgx_configure_pixel_clocks(s5k4cdgx);
+	//ret = s5k4cdgx_configure_pixel_clocks(s5k4cdgx);
+	//if (ret) {
+        //v4l2_err(sd, "[S5K4CDGX] %s function err in configure_pixel_clocks\n", __func__);
+	//	return ret;
+	//}
+	
 	return 0;
 }
 
@@ -1913,29 +1742,57 @@ static int s5k4cdgx_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 int s5k4cdgx_check_fw_revision(struct s5k4cdgx *s5k4cdgx)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&s5k4cdgx->sd);
-	u16 api_ver = 0, fw_rev = 0;
+	struct v4l2_subdev *sd = &s5k4cdgx->sd;
+	u16 chipid = 0, modelid = 0;
+	int rc;
 
-	int ret = s5k4cdgx_set_ahb_address(client);
-
-	if (!ret)
-		ret = s5k4cdgx_read(client, REG_FW_APIVER, &api_ver);
-	if (!ret)
-		ret = s5k4cdgx_read(client, REG_FW_REVISION, &fw_rev);
-	if (ret) {
-		v4l2_err(&s5k4cdgx->sd, "FW revision check failed!\n");
-		return ret;
+	rc = s5k4cdgx_read(client, REG_CHIP_ID, &chipid);
+	if (rc < 0) {
+			v4l2_info(sd, "s5k4cdgx_read chipid read failed!!! rc=%d\n", rc);
 	}
+	
+	v4l2_info(sd, "chipid = 0x%x\n", chipid);
+	
+	rc = s5k4cdgx_write(client, REG_GPIO_MODE_SEL, 0x0033);
+	if (rc < 0) {
+			v4l2_info(sd, "s5k4cdgx_write REG_GPIO_MODE_SEL rc=%d\n", rc);
+	}
+	
+	rc = s5k4cdgx_write(client, REG_GPIO_FUNC_SEL, 0x0066);
+	if (rc < 0) {
+			v4l2_info(sd, "s5k4cdgx_write REG_GPIO_FUNC_SEL rc=%d\n", rc);
+	}
+	
+	mdelay(2);
+	
+	rc = s5k4cdgx_read(client, REG_MODEL_ID, &modelid);
+	if (rc < 0) {
+			v4l2_info(sd, "s5k4cdgx_read model_id read failed!!! rc=%d\n", rc);
+	}
+	
+	v4l2_info(sd, "model_id = 0x%x\n", modelid);
+	
+	
+	rc = s5k4cdgx_write(client, REG_GPIO_MODE_SEL, 0x0000);
+	if (rc < 0) {
+			v4l2_info(sd, "s5k4cdgx_write REG_GPIO_MODE_SEL rc=%d\n", rc);
+	}
+	
+	rc = s5k4cdgx_write(client, REG_GPIO_FUNC_SEL, 0x0000);
+	if (rc < 0) {
+			v4l2_info(sd, "s5k4cdgx_write REG_GPIO_FUNC_SEL rc=%d\n", rc);
+	}
+	
+	v4l2_info(&s5k4cdgx->sd, "ChipID: 0x%X, ModelID: 0x%x\n",
+		  chipid, modelid);
 
-	v4l2_info(&s5k4cdgx->sd, "FW API ver.: 0x%X, FW rev.: 0x%X\n",
-		  api_ver, fw_rev);
-
-	//return api_ver == S5K4CDGXFX_FW_APIVER ? 0 : -ENODEV;
-	return 0;
+	return chipid == S5K4CDGX_CHIP_ID ? 0 : -ENODEV;
 }
 
 static int s5k4cdgx_registered(struct v4l2_subdev *sd)
 {
 	struct s5k4cdgx *s5k4cdgx = to_s5k4cdgx(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 
 	if(!sd || !s5k4cdgx) {
@@ -2131,26 +1988,6 @@ static int s5k4cdgx_probe(struct i2c_client *client,
 		goto out_err3;
 	}
 
-	unsigned short chipid;
-
-	s5k4cdgx_i2c_write(client,0x0010, 0x0001);
-	msleep(10);
-	s5k4cdgx_i2c_write(client,0x0010, 0x0000);
-	msleep(10);
-
-	s5k4cdgx_i2c_write(client,0x002c, 0x0000);
-	s5k4cdgx_i2c_write(client,0x002e, 0x0040);
-	s5k4cdgx_i2c_read(client,0x0f12, &chipid);
-	 v4l2_info(&s5k4cdgx->sd, "ChipId: 0x%x\n",chipid);
-	s5k4cdgx_i2c_write(client,0x002e, 0x0000);
-        s5k4cdgx_i2c_read(client,0x0f12, &chipid);
-	v4l2_info(&s5k4cdgx->sd, "ChipId 0x0000: 0x%x\n",chipid);
-
-	s5k4cdgx_i2c_write(client,0x002c, 0xD000);
-	s5k4cdgx_i2c_write(client,0x002e, 0x1006);
-	s5k4cdgx_i2c_read(client,0x0f12, &chipid);
-	v4l2_info(&s5k4cdgx->sd, "ChipId 0x0000: 0x%x\n",chipid);
-
 	ret = s5k4cdgx_initialize_ctrls(s5k4cdgx);
 	if (ret) {
 		dev_err(&client->dev, "Failed to initialize v4l controls\n");
@@ -2160,7 +1997,7 @@ static int s5k4cdgx_probe(struct i2c_client *client,
 	s5k4cdgx_presets_data_init(s5k4cdgx);
 
 	s5k4cdgx->ccd_rect.width = S5K4CDGX_WIN_WIDTH_MAX;
-	s5k4cdgx->ccd_rect.height	= S5K4CDGX_WIN_HEIGHT_MAX;
+	s5k4cdgx->ccd_rect.height = S5K4CDGX_WIN_HEIGHT_MAX;
 	s5k4cdgx->ccd_rect.left = 0;
 	s5k4cdgx->ccd_rect.top = 0;
 
@@ -2224,4 +2061,3 @@ module_exit(s5k4cdgx_exit);
 MODULE_DESCRIPTION("Samsung S5K4CDGX QXGA camera driver");
 MODULE_AUTHOR("Boris Popov <bvpopov<at>gmail.com>");
 MODULE_LICENSE("GPL");
-
