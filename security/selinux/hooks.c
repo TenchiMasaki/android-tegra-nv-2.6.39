@@ -1833,7 +1833,7 @@ static int selinux_binder_transfer_file(struct task_struct *from, struct task_st
 	int rc;
 
 	COMMON_AUDIT_DATA_INIT(&ad, PATH);
-	ad.u.path = file->f_path;
+	ad.type = LSM_AUDIT_DATA_PATH;
 
 	if (sid != fsec->sid) {
 		rc = avc_has_perm(sid, fsec->sid,
