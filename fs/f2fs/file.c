@@ -429,13 +429,13 @@ int f2fs_setattr(struct dentry *dentry, struct iattr *attr)
 const struct inode_operations f2fs_file_inode_operations = {
 	.getattr	= f2fs_getattr,
 	.setattr	= f2fs_setattr,
-	.get_acl	= f2fs_get_acl,
 #ifdef CONFIG_F2FS_FS_XATTR
 	.setxattr	= generic_setxattr,
 	.getxattr	= generic_getxattr,
 	.listxattr	= f2fs_listxattr,
 	.removexattr	= generic_removexattr,
 #endif
+        .check_acl      = f2fs_check_acl,
 };
 
 static void fill_zero(struct inode *inode, pgoff_t index,

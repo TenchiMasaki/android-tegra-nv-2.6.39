@@ -246,6 +246,28 @@ static int f2fs_set_acl(struct inode *inode, int type, struct posix_acl *acl)
 	return error;
 }
 
+int f2fs_check_acl(struct inode *inode, int mask, unsigned int flags)
+{
+        struct posix_acl *acl;
+
+        if (flags & IPERM_FLAG_RCU) {
+                if (!negative_cached_acl(inode, ACL_TYPE_ACCESS))
+                        return -ECHILD;
+                return -EAGAIN;
+        }
+
+        acl = f2fs_get_acl(inode, ACL_TYPE_ACCESS);
+        if (IS_ERR(acl))
+                return PTR_ERR(acl);
+        if (acl) {
+                int error = posix_acl_permission(inode, acl, mask);
+                posix_acl_release(acl);
+                return error;
+        }
+
+        return -EAGAIN;
+}
+
 int f2fs_init_acl(struct inode *inode, struct inode *dir)
 {
 	struct posix_acl *acl = NULL;
@@ -264,17 +286,28 @@ int f2fs_init_acl(struct inode *inode, struct inode *dir)
 	}
 
 	if (test_opt(sbi, POSIX_ACL) && acl) {
+		struct posix_acl *clone;
+		mode_t mode;
 
 		if (S_ISDIR(inode->i_mode)) {
 			error = f2fs_set_acl(inode, ACL_TYPE_DEFAULT, acl);
 			if (error)
 				goto cleanup;
 		}
-		error = posix_acl_create(&acl, GFP_KERNEL, &inode->i_mode);
-		if (error < 0)
-			return error;
-		if (error > 0)
-			error = f2fs_set_acl(inode, ACL_TYPE_ACCESS, acl);
+		clone = posix_acl_clone(acl, GFP_KERNEL);
+		error = -ENOMEM;
+		if (!clone)
+			goto cleanup;
+		mode = inode->i_mode;
+		error = posix_acl_create_masq(clone, &mode);
+		if (error >= 0) {
+			inode->i_mode = mode;
+			if (error > 0) {
+				/* This is an extended ACL */
+				error = f2fs_set_acl(inode, ACL_TYPE_ACCESS, clone);
+			}
+		}
+		posix_acl_release(clone);
 	}
 cleanup:
 	posix_acl_release(acl);
@@ -284,7 +317,7 @@ cleanup:
 int f2fs_acl_chmod(struct inode *inode)
 {
 	struct f2fs_sb_info *sbi = F2FS_SB(inode->i_sb);
-	struct posix_acl *acl;
+	struct posix_acl *acl, *clone;
 	int error;
 	mode_t mode = get_inode_mode(inode);
 
@@ -297,11 +330,14 @@ int f2fs_acl_chmod(struct inode *inode)
 	if (IS_ERR(acl) || !acl)
 		return PTR_ERR(acl);
 
-	error = posix_acl_chmod(&acl, GFP_KERNEL, mode);
-	if (error)
-		return error;
-	error = f2fs_set_acl(inode, ACL_TYPE_ACCESS, acl);
+	clone = posix_acl_clone(acl, GFP_KERNEL);
 	posix_acl_release(acl);
+	if (!clone)
+		return -ENOMEM;
+	error = posix_acl_chmod_masq(clone, mode);
+        if (!error)
+		error = f2fs_set_acl(inode, ACL_TYPE_ACCESS, clone);
+	posix_acl_release(clone);
 	return error;
 }
 
