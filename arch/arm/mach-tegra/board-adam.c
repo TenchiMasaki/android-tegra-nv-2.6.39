@@ -71,6 +71,7 @@
 #include "devices.h"
 #include "wakeups-t2.h"
 
+#include <linux/rfkill-gpio.h>
 
 #define PMC_CTRL                0x0
 #define PMC_CTRL_INTR_LOW       (1 << 17)
@@ -171,6 +172,64 @@ __tagtable(ATAG_NVIDIA, parse_tag_nvidia);
 static unsigned long ramconsole_start = SZ_512M*2 - SZ_2M;
 static unsigned long ramconsole_size = SZ_1M;
 
+static struct rfkill_gpio_platform_data bluetooth_rfkill = {
+	.name		= "bluetooth_rfkill",
+	.shutdown_gpio	= -1,
+	.reset_gpio	= ADAM_BT_RST,	
+	.type		= RFKILL_TYPE_BLUETOOTH,
+};
+
+static struct platform_device bluetooth_rfkill_device = {
+	.name	= "rfkill_gpio",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &bluetooth_rfkill,
+	},
+};
+
+#ifdef CONFIG_BT_BLUEDROID
+extern void bluesleep_setup_uart_port(struct platform_device *uart_dev);
+#endif
+
+void __init smba_setup_bluesleep(void)
+{
+	/*Add Clock Resource*/
+	clk_add_alias("bcm4329_32k_clk", bluetooth_rfkill_device.name, \
+				"blink", NULL);
+#ifdef CONFIG_BT_BLUEDROID
+	bluesleep_setup_uart_port(&tegra_uartc_device);
+#endif
+	return;
+}
+
+static struct resource smba_bluesleep_resources[] = {
+	[0] = {
+		.name = "gpio_host_wake",
+			.start  = ADAM_BT_IRQ,
+			.end    = ADAM_BT_IRQ,
+			.flags  = IORESOURCE_IO,
+	},
+	[1] = {
+		.name = "gpio_ext_wake",
+			.start  = ADAM_BT_WAKEUP,
+			.end    = ADAM_BT_WAKEUP,
+			.flags  = IORESOURCE_IO,
+	},
+	[2] = {
+		.name = "host_wake",
+			.start  = TEGRA_GPIO_TO_IRQ(ADAM_BT_IRQ),
+			.end    = TEGRA_GPIO_TO_IRQ(ADAM_BT_IRQ),
+			.flags  = IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE,
+	},
+};
+
+static struct platform_device smba_bluesleep_device = {
+	.name           = "bluesleep",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(smba_bluesleep_resources),
+	.resource       = smba_bluesleep_resources,
+};
+
 static struct resource ram_console_resources[] = {
 	{
 		/* .start and .end filled in later */
@@ -188,6 +247,11 @@ static struct platform_device ram_console_device = {
 	//.dev    = {
 	//	.platform_data = &ram_console_pdata,
 	//},
+};
+
+static struct platform_device *smba_devices[] __initdata = {
+	&bluetooth_rfkill_device,
+	&smba_bluesleep_device
 };
 
 static int __init stingray_ramconsole_arg(char *options)
@@ -331,6 +395,7 @@ static void __init tegra_adam_init(void)
 	/* Initialize the clocks - clocks require the pinmux to be initialized first */
 	adam_clks_init();
 
+	platform_add_devices(smba_devices,ARRAY_SIZE(smba_devices));
 	/* Register i2c devices - required for Power management and MUST be done before the power register */
 	adam_i2c_register_devices();
 
@@ -378,8 +443,8 @@ static void __init tegra_adam_init(void)
 	
 	/* Register Bluetooth powermanagement devices */
 	//adam_bt_pm_register_devices();
-	adam_bt_rfkill();
-	adam_setup_bluesleep();
+	//adam_bt_rfkill();
+	//adam_setup_bluesleep();
 
 	/* Register Camera powermanagement devices */
 //	adam_camera_register_devices();
@@ -390,6 +455,8 @@ static void __init tegra_adam_init(void)
 	/* Register SDHCI devices */
 	adam_sdhci_register_devices();
 	
+	/* Register Bluetooth powermanagement devices */
+	smba_setup_bluesleep();
 	adam_gps_mag_init();
 	adam_gps_mag_poweron();
 	tegra_release_bootloader_fb();

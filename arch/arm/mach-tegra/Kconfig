@@ -9,6 +9,7 @@ config ARCH_TEGRA_2x_SOC
 	select ARCH_TEGRA_HAS_PCIE
 	select CPU_V7
 	select ARM_GIC
+	select ARM_SAVE_DEBUG_CONTEXT if PM_SLEEP
 	select ARCH_REQUIRE_GPIOLIB
 	select USB_ARCH_HAS_EHCI if USB_SUPPORT
 	select USB_ULPI if USB_SUPPORT
@@ -19,6 +20,10 @@ config ARCH_TEGRA_2x_SOC
 	select USB_ULPI_VIEWPORT if USB_SUPPORT
 	select ARCH_SUPPORTS_MSI if TEGRA_PCI
 	select PCI_MSI if TEGRA_PCI
+	select CPA
+	select ARM_ERRATA_716044
+	select ARM_ERRATA_764369 if SMP
+	select ARCH_HAS_SUSPEND_PAGETABLE
 	help
 	  Support for NVIDIA Tegra AP20 and T20 processors, based on the
 	  ARM CortexA9MP CPU and the ARM PL310 L2 cache controller
@@ -31,7 +36,8 @@ config ARCH_TEGRA_3x_SOC
 	select ARCH_TEGRA_HAS_DUAL_CPU_CLUSTERS
 	select CPU_V7
 	select ARM_GIC
-	select GIC_SET_MULTIPLE_CPUS
+	select ARM_SAVE_DEBUG_CONTEXT if PM_SLEEP
+	select GIC_SET_MULTIPLE_CPUS if SMP
 	select ARCH_REQUIRE_GPIOLIB
 	select USB_ARCH_HAS_EHCI if USB_SUPPORT
 	select USB_EHCI_TEGRA if USB_SUPPORT
@@ -40,6 +46,11 @@ config ARCH_TEGRA_3x_SOC
 	select REPORT_PRESENT_CPUS if TEGRA_AUTO_HOTPLUG
 	select ARCH_SUPPORTS_MSI if TEGRA_PCI
 	select PCI_MSI if TEGRA_PCI
+	select ARM_ERRATA_754322
+	select ARM_ERRATA_764369 if SMP
+	select TEGRA_LP2_ARM_TWD if HAVE_ARM_TWD && !TEGRA_RAIL_OFF_MULTIPLE_CPUS
+	select CPA
+	select ARCH_HAS_SUSPEND_PAGETABLE
 	help
 	  Support for NVIDIA Tegra 3 family of SoCs, based upon the
 	  ARM CortexA9MP CPU and the ARM PL310 L2 cache controller
@@ -69,6 +80,13 @@ config MACH_ADAM
        bool "Notion Ink Adam TabletPC"
        depends on ARCH_TEGRA_2x_SOC
        select MACH_HAS_SND_SOC_TEGRA_ALC5623 if SND_SOC
+#       select SND_SOC_TEGRA
+#       select SND_SOC_TEGRA_ALC5623
+#       select SND_SOC_ALC5623
+#       select LZO_COMPRESS
+#       select LZO_DECOMPRESS
+#       select DECOMPRESS_LZO
+#       select SND_SOC_DMAENGINE_PCM
        help
          Support for all TabletPCs based on the ADAM design.
 
@@ -80,6 +98,14 @@ config MACH_HARMONY
        select MACH_HAS_SND_SOC_TEGRA_WM8903 if SND_SOC
        help
          Support for NVIDIA Harmony development platform
+
+
+config MACH_SMBA1006
+       bool "Malata smba1006"
+       depends on ARCH_TEGRA_2x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_ALC5623 if SND_SOC
+       help
+         Support for the Malata smba1006 (NotionInk Adam)
 
 config MACH_VENTANA
        bool "Ventana board"
@@ -110,6 +136,12 @@ config MACH_SEABOARD
          Support for nVidia Seaboard development platform. It will
 	 also be included for some of the derivative boards that
 	 have large similarities with the seaboard design.
+
+config MACH_TEGRA_DT
+	bool "Generic Tegra board (FDT support)"
+	select USE_OF
+	help
+	  Support for generic nVidia Tegra boards using Flattened Device Tree
 
 config MACH_TRIMSLICE
        bool "TrimSlice board"
@@ -144,13 +176,23 @@ config MACH_CARDHU
        bool "Cardhu board"
        depends on ARCH_TEGRA_3x_SOC
        select MACH_HAS_SND_SOC_TEGRA_WM8903 if SND_SOC
+       select MACH_HAS_SND_SOC_TEGRA_TLV320AIC326X if SND_SOC
+       select MACH_HAS_SND_SOC_TEGRA_MAX98095 if SND_SOC
        help
          Support for NVIDIA Cardhu development platform
+
+config MACH_P1852
+       bool "P1852 board"
+       depends on ARCH_TEGRA_3x_SOC
+       help
+         Support for NVIDIA P1852 development platform
 
 config MACH_TEGRA_ENTERPRISE
        bool "Enterprise board"
        depends on ARCH_TEGRA_3x_SOC
        select MACH_HAS_SND_SOC_TEGRA_MAX98088 if SND_SOC
+       select MACH_HAS_SND_SOC_TEGRA_TLV320AIC326X if SND_SOC
+       select TEGRA_SLOW_CSITE
        help
          Support for NVIDIA Enterprise development platform
 
@@ -225,6 +267,10 @@ config TEGRA_PWM
 	help
 	  Enable support for the Tegra PWM controller(s).
 
+config TEGRA_ENABLE_OC
+	bool "Enable overclocking ala clemsyn of Tegra2"
+	default n
+
 config TEGRA_FIQ_DEBUGGER
 	bool "Enable the FIQ serial debugger on Tegra"
 	default n
@@ -238,6 +284,13 @@ config TEGRA_CARDHU_DSI
 	select TEGRA_DSI
 	help
 		Support for DSI Panel on Nvidia Cardhu
+
+config TEGRA_CARDHU_DUAL_DSI_PANEL
+	bool "Support Dual DSI panel on Cardhu"
+	default n
+	depends on TEGRA_CARDHU_DSI
+	help
+		Support for Dual DSI Panel on Nvidia Cardhu
 
 config TEGRA_EMC_SCALING_ENABLE
 	bool "Enable scaling the memory frequency"
@@ -316,6 +369,7 @@ config TEGRA_THERMAL_THROTTLE
 	bool "Enable throttling of CPU speed on overtemp"
 	depends on TEGRA_SILICON_PLATFORM
 	depends on CPU_FREQ
+	depends on THERMAL
 	default y
 	help
 	  Also requires enabling a temperature sensor such as NCT1008.
@@ -343,6 +397,15 @@ config TEGRA_AUTO_HOTPLUG
 	  This option enables turning CPUs off/on and switching tegra
 	  high/low power CPU clusters automatically, corresponding to
 	  CPU frequency scaling.
+
+config TEGRA_MC_EARLY_ACK
+	bool "Enable early acknowledgement from mermory controller"
+	depends on ARCH_TEGRA_3x_SOC
+	default y
+	help
+	  This option enables early acknowledgement from memory
+	  controller. This feature is used to improve CPU memory
+	  write performance.
 
 config TEGRA_MC_PROFILE
 	tristate "Enable profiling memory controller utilization"
@@ -462,5 +525,48 @@ config TEGRA_WDT_RECOVERY
 	help
 	  Enables watchdog recovery mechanism to protect against
 	  suspend/resume hangs.
+
+config TEGRA_LP2_ARM_TWD
+	bool
+
+config TEGRA_RAIL_OFF_MULTIPLE_CPUS
+	bool
+
+config TEGRA_SLOW_CSITE
+	bool "lower csite clock to 1 Mhz to reduce its power consumption"
+	default n
+	help
+	  When enabled, csite will be running at 1 Mhz and the performance of
+	  jtag, lauterbach and other debugger will be extremely slow.
+
+config TEGRA_PREINIT_CLOCKS
+	bool "Preinitialize Tegra clocks to known states"
+	default n
+	help
+	  Preinitialize Tegra clocks to known states before actual full-
+	  scale clock initialization starts.
+
+config TEGRA_PREPOWER_WIFI
+	bool "Pre-power up WiFi "
+	default n
+	help
+	  Pre-power up the on board WiFi chip
+
+config TEGRA_SKIN_THROTTLE
+	bool "Skin Temperature throttling"
+	depends on TEGRA_THERMAL_THROTTLE
+	depends on THERM_EST
+	default n
+	help
+	  Enable throttling to control the temperature of the skin/case
+	  of the device.
+
+config TEGRA_LP1_950
+	bool "LP1 low core voltage"
+	default n
+	depends on ARCH_TEGRA_3x_SOC
+	help
+		Enable support for LP1 Core voltage to set to lowest
+
 endif
 

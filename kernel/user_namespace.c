@@ -4,13 +4,23 @@
  *  published by the Free Software Foundation, version 2 of the
  *  License.
  */
-
+#include <linux/export.h>
 #include <linux/module.h>
 #include <linux/nsproxy.h>
 #include <linux/slab.h>
 #include <linux/user_namespace.h>
 #include <linux/highuid.h>
 #include <linux/cred.h>
+#include <linux/securebits.h>
+#include <linux/keyctl.h>
+#include <linux/key-type.h>
+#include <keys/user-type.h>
+#include <linux/seq_file.h>
+#include <linux/fs.h>
+#include <linux/uaccess.h>
+#include <linux/ctype.h>
+#include <linux/uidgid.h>
+#include <linux/fs_struct.h>
 
 static struct kmem_cache *user_ns_cachep __read_mostly;
 
@@ -86,6 +96,50 @@ void free_user_ns(struct kref *kref)
 }
 EXPORT_SYMBOL(free_user_ns);
 
+static u32 map_id_up(struct uid_gid_map *map, u32 id)
+{
+	unsigned idx, extents;
+	u32 first, last;
+
+	/* Find the matching extent */
+	extents = map->nr_extents;
+	smp_read_barrier_depends();
+	for (idx = 0; idx < extents; idx++) {
+		first = map->extent[idx].lower_first;
+		last = first + map->extent[idx].count - 1;
+		if (id >= first && id <= last)
+			break;
+	}
+	/* Map the id or note failure */
+	if (idx < extents)
+		id = (id - first) + map->extent[idx].first;
+	else
+		id = (u32) -1;
+
+	return id;
+}
+
+
+
+/**
+ *	from_kuid - Create a uid from a kuid user-namespace pair.
+ *	@targ: The user namespace we want a uid in.
+ *	@kuid: The kernel internal uid to start with.
+ *
+ *	Map @kuid into the user-namespace specified by @targ and
+ *	return the resulting uid.
+ *
+ *	There is always a mapping into the initial user_namespace.
+ *
+ *	If @kuid has no mapping in @targ (uid_t)-1 is returned.
+ */
+uid_t from_kuid(struct user_namespace *targ, kuid_t kuid)
+{
+	/* Map the uid from a global kernel uid */
+	return map_id_up(&targ->uid_map, __kuid_val(kuid));
+}
+EXPORT_SYMBOL(from_kuid);
+
 uid_t user_ns_map_uid(struct user_namespace *to, const struct cred *cred, uid_t uid)
 {
 	struct user_namespace *tmp;
@@ -107,6 +161,25 @@ uid_t user_ns_map_uid(struct user_namespace *to, const struct cred *cred, uid_t 
 	/* No useful relationship so no mapping */
 	return overflowuid;
 }
+
+/**
+ *	from_kgid - Create a gid from a kgid user-namespace pair.
+ *	@targ: The user namespace we want a gid in.
+ *	@kgid: The kernel internal gid to start with.
+ *
+ *	Map @kgid into the user-namespace specified by @targ and
+ *	return the resulting gid.
+ *
+ *	There is always a mapping into the initial user_namespace.
+ *
+ *	If @kgid has no mapping in @targ (gid_t)-1 is returned.
+ */
+gid_t from_kgid(struct user_namespace *targ, kgid_t kgid)
+{
+	/* Map the gid from a global kernel gid */
+	return map_id_up(&targ->gid_map, __kgid_val(kgid));
+}
+EXPORT_SYMBOL(from_kgid);
 
 gid_t user_ns_map_gid(struct user_namespace *to, const struct cred *cred, gid_t gid)
 {

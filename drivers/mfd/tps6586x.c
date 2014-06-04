@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
+#include <linux/delay.h>
 
 #include <linux/mfd/core.h>
 #include <linux/mfd/tps6586x.h>
@@ -30,6 +31,14 @@
 #define TPS6586X_SUPPLYENE  0x14
 #define EXITSLREQ_BIT       BIT(1) /* Exit sleep mode request */
 #define SLEEP_MODE_BIT      BIT(3) /* Sleep mode */
+
+/* RGB1 control registers */
+#define TPS6586X_RGB1FLASH	0x50
+#define TPS6586X_RGB1RED	0x51
+#define TPS6586X_RGB1GREEN	0x52
+#define TPS6586X_RGB1BLUE	0x53
+#define DISABLE_FLASH_MODE	0xff
+#define TPS6586X_RGB1GREEN_BIT BIT(7)
 
 /* GPIO control registers */
 #define TPS6586X_GPIOSET1	0x5d
@@ -259,21 +268,47 @@ static struct i2c_client *tps6586x_i2c_client = NULL;
 int tps6586x_power_off(void)
 {
 	struct device *dev = NULL;
-	int ret = -EINVAL;
+	uint8_t data = 0;
+	uint32_t count = 0;
+	int ret;
 
 	if (!tps6586x_i2c_client)
-		return ret;
+		return;
 
 	dev = &tps6586x_i2c_client->dev;
+	printk(KERN_EMERG "tps6586x power off called.\n");
+	while (1) {
+		/* SLEEP REQUEST EXIT CONTROL */
+		tps6586x_clr_bits(dev, TPS6586X_SUPPLYENE, EXITSLREQ_BIT);
+		ret = tps6586x_read(dev, TPS6586X_SUPPLYENE, &data);
+		if (ret < 0) {
+			pr_err("%s() failed to read with return : %d\n",
+				__func__, ret);
+			continue;
+		}
+		if (data & EXITSLREQ_BIT) {
+			pr_warn("%s: EXITSLREQ_BIT is not set(0x%x)\n", __func__, data);
+			continue;
+		}
 
-	ret = tps6586x_clr_bits(dev, TPS6586X_SUPPLYENE, EXITSLREQ_BIT);
-	if (ret)
-		return ret;
+		/* Set TPS6586X in SLEEP MODE. The device will be powered off */
+		tps6586x_set_bits(dev, TPS6586X_SUPPLYENE, SLEEP_MODE_BIT);
+		printk(KERN_EMERG "tps6586x put in sleep mode.\n");
+		mdelay(100);
+		/* The below code should not excute in normal case */
+		ret = tps6586x_read(dev, TPS6586X_SUPPLYENE, &data);
+		printk(KERN_EMERG "tps6586x out of sleep mode.\n");
+		if (ret < 0) {
+			pr_err("%s() failed to read with return : %d\n",
+				__func__, ret);
+		} else if (data & SLEEP_MODE_BIT) {
+			pr_info("%s: SLEEP_MODE_BIT is set\n", __func__);
+			break;
+		}
 
-	ret = tps6586x_set_bits(dev, TPS6586X_SUPPLYENE, SLEEP_MODE_BIT);
-	if (ret)
-		return ret;
-
+		mdelay(1000);
+	}
+	
 	return 0;
 }
 
@@ -293,6 +328,40 @@ int tps6586x_cancel_sleep(void)
 
 	return 0;
 }
+
+int tps6586x_suspend_led(int enable)
+{
+	struct device *dev = NULL;
+	int ret = -EINVAL;
+	uint8_t val;
+	if (!tps6586x_i2c_client)
+		goto fail;
+
+	dev = &tps6586x_i2c_client->dev;
+
+	if (tps6586x_write(dev,TPS6586X_RGB1FLASH,DISABLE_FLASH_MODE))
+		goto fail;
+
+	if ( tps6586x_read(dev,TPS6586X_RGB1GREEN,&val))
+		goto fail;
+
+	val |=0x0F;
+	if (tps6586x_write(dev,TPS6586X_RGB1GREEN,val))
+	goto fail;
+
+	if(enable){
+		ret = tps6586x_set_bits(dev, TPS6586X_RGB1GREEN,TPS6586X_RGB1GREEN_BIT);
+	} else {
+		ret = tps6586x_clr_bits(dev, TPS6586X_RGB1GREEN,TPS6586X_RGB1GREEN_BIT);
+	}
+	if (ret)
+		goto fail;
+
+	return 0;
+fail:
+	return ret;
+}
+
 
 static int tps6586x_gpio_get(struct gpio_chip *gc, unsigned offset)
 {
@@ -578,6 +647,9 @@ static int __devinit tps6586x_i2c_probe(struct i2c_client *client,
 		dev_err(&client->dev, "add devices failed: %d\n", ret);
 		goto err_add_devs;
 	}
+
+	if (pdata->use_power_off && !pm_power_off)
+		pm_power_off = tps6586x_power_off;
 
 	tps6586x_i2c_client = client;
 

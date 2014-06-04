@@ -842,7 +842,7 @@ static ssize_t kmsg_write(struct file *file, const char __user *buf,
 	return ret;
 }
 
-static const struct file_operations kmsg_fops = {
+const struct file_operations kmsg_fops = {
 	.write = kmsg_write,
 	.llseek = noop_llseek,
 };

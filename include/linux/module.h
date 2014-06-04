@@ -34,11 +34,13 @@
 
 #define MODULE_NAME_LEN MAX_PARAM_PREFIX_LEN
 
+#ifndef THIS_MODULE
 struct kernel_symbol
 {
 	unsigned long value;
 	const char *name;
 };
+#endif
 
 struct modversion_info
 {

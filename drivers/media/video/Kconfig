@@ -929,6 +929,23 @@ config VIDEO_MX2
 	  Interface
 
 
+config VIDEO_TEGRA
+        tristate "Tegra soc_camera host driver"
+        depends on VIDEO_DEV && ARCH_TEGRA && SOC_CAMERA
+        select VIDEOBUF_DMA_NVMAP
+        ---help---
+          This is a v4l2 driver for the Tegra camera interface
+
+
+config VIDEO_S5K4CDGX
+        tristate "s5k4cdgx support"
+        depends on I2C && VIDEO_V4L2
+        select MEDIA_CONTROLLER
+        select VIDEO_V4L2_SUBDEV_API
+        ----help---
+          This driver supports S5K4CDGX cameras from Samsung
+        
+
 #
 # USB Multimedia device configuration
 #

@@ -5,15 +5,38 @@
 #include <linux/nsproxy.h>
 #include <linux/sched.h>
 #include <linux/err.h>
+#include <linux/uidgid.h>
 
 #define UIDHASH_BITS	(CONFIG_BASE_SMALL ? 3 : 7)
 #define UIDHASH_SZ	(1 << UIDHASH_BITS)
+
+#define UID_GID_MAP_MAX_EXTENTS 5
+
+struct uid_gid_map {	/* 64 bytes -- 1 cache line */
+	u32 nr_extents;
+	struct uid_gid_extent {
+		u32 first;
+		u32 lower_first;
+		u32 count;
+	} extent[UID_GID_MAP_MAX_EXTENTS];
+};
 
 struct user_namespace {
 	struct kref		kref;
 	struct hlist_head	uidhash_table[UIDHASH_SZ];
 	struct user_struct	*creator;
 	struct work_struct	destroyer;
+	struct uid_gid_map	uid_map;
+	struct uid_gid_map	gid_map;
+	struct uid_gid_map	projid_map;
+	atomic_t		count;
+	struct user_namespace	*parent;
+	int			level;
+	kuid_t			owner;
+	kgid_t			group;
+	unsigned int		proc_inum;
+	bool			may_mount_sysfs;
+	bool			may_mount_proc;
 };
 
 extern struct user_namespace init_user_ns;

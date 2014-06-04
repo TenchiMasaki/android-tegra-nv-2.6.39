@@ -171,6 +171,7 @@ extern int adam_sdhci_register_devices(void);
 extern int adam_sensors_register_devices(void);
 extern int adam_wlan_pm_register_devices(void);
 extern int adam_gps_pm_register_devices(void);
+extern int smba_s5k4cdgx_set_power(int enable);
 extern int adam_gsm_pm_register_devices(void);
 //extern int adam_bt_pm_register_devices(void);
 extern void adam_setup_bluesleep(void);

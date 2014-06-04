@@ -35,9 +35,9 @@ enum rfkill_input_master_mode {
 static enum rfkill_input_master_mode rfkill_master_switch_mode =
 					RFKILL_INPUT_MASTER_UNBLOCKALL;
 module_param_named(master_switch_mode, rfkill_master_switch_mode, uint, 0);
-MODULE_PARM_DESC(master_switch_mode,
+/* MODULE_PARM_DESC(master_switch_mode,
 	"SW_RFKILL_ALL ON should: 0=do nothing (only unlock); 1=restore; 2=unblock all");
-
+*/
 static spinlock_t rfkill_op_lock;
 static bool rfkill_op_pending;
 static unsigned long rfkill_sw_pending[BITS_TO_LONGS(NUM_RFKILL_TYPES)];

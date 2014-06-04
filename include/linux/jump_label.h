@@ -18,6 +18,7 @@ struct module;
 extern struct jump_entry __start___jump_table[];
 extern struct jump_entry __stop___jump_table[];
 
+extern void jump_label_init(void);
 extern void jump_label_lock(void);
 extern void jump_label_unlock(void);
 extern void arch_jump_label_transform(struct jump_entry *entry,
@@ -46,6 +47,9 @@ do {					\
        *(cond_var) = 1;			\
 } while (0)
 
+
+#define jump_label_init(void) \
+{}
 #define jump_label_disable(cond_var)	\
 do {					\
        *(cond_var) = 0;			\
