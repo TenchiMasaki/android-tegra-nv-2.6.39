@@ -54,6 +54,8 @@
 #define ADAM_SDHC_POWER		TEGRA_GPIO_PD0
 #define ADAM_WLAN_POWER 	TEGRA_GPIO_PK5
 #define ADAM_WLAN_RESET 	TEGRA_GPIO_PK6
+#define ADAM_WLAN_WOW		TEGRA_GPIO_PS0
+#define ADAM_SDIO_WOW		TEGRA_GPIO_PY6
 #define ADAM_BT_RST		TEGRA_GPIO_PU0
 #define ADAM_LOW_BATT		TEGRA_GPIO_PW3 /*(0=low battery)*/
 #define ADAM_IN_S3		TEGRA_GPIO_PAA7 /*1 = in S3 */
@@ -118,7 +120,6 @@
 #define DYNAMIC_GPU_MEM 1						/* use dynamic memory for GPU */
 
 #define ADAM_48KHZ_AUDIO /* <- define this if you want 48khz audio sampling rate instead of 44100Hz */
-/*#define USE_ORG_DAS 1*/
 
 // TPS6586x GPIOs as registered 
 #define PMU_GPIO_BASE		(TEGRA_NR_GPIOS) 
@@ -177,7 +178,7 @@ extern int adam_gsm_pm_register_devices(void);
 extern void adam_setup_bluesleep(void);
 extern void adam_bt_rfkill(void);
 extern int adam_nand_register_devices(void);
-extern int adam_camera_register_devices(void);
+extern int smba_camera_register_devices(void);
 
 #endif
 

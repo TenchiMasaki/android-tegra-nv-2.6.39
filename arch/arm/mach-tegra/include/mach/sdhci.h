@@ -29,7 +29,9 @@
 #define MMC_OCR_1V8_MASK    0x8
 
 struct tegra_sdhci_platform_data {
+	const char *clk_id;
 	int wow_gpio;
+	int force_hs;
 	int cd_gpio;
 	int wp_gpio;
 	int power_gpio;

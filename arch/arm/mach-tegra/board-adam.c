@@ -447,7 +447,7 @@ static void __init tegra_adam_init(void)
 	//adam_setup_bluesleep();
 
 	/* Register Camera powermanagement devices */
-//	adam_camera_register_devices();
+	smba_camera_register_devices();
 
 	/* Register NAND flash devices */
 	adam_nand_register_devices();

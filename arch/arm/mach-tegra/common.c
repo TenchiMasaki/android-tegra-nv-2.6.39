@@ -103,10 +103,10 @@ static struct board_info pmu_board_info;
 static struct board_info display_board_info;
 static struct board_info camera_board_info;
 
-#ifndef CONFIG_TEGRA_ENABLE_OC
-static int pmu_core_edp = 1200;	/* default 1.2V EDP limit */
+#ifdef CONFIG_KERNEL_OC_MODE
+static int pmu_core_edp = 1350;	/* default 1.2V EDP limit */
 #else
-static int pmu_core_edp = 1400;	/* default 1.4V EDP limit */
+static int pmu_core_edp = 1200;	/* default 1.2V EDP limit */
 #endif
 
 static int board_panel_type;
@@ -186,10 +186,10 @@ static __initdata struct tegra_clk_init_table common_clk_init_table[] = {
 	{ "2d",		"pll_c",	0,		false },
 	{ "3d",		"pll_c",	0,		false },
 #else
-	{ "pll_p",	NULL,		0,		true },
-	{ "pll_p_out1",	"pll_p",	0,		false },
-	{ "pll_p_out2",	"pll_p",	48000000,	false },
-	{ "pll_p_out3",	"pll_p",	0,		true },
+	{ "pll_p",	NULL,		408000000,	true },
+	{ "pll_p_out1",	"pll_p",	9600000,	true },
+	{ "pll_p_out2",	"pll_p",	48000000,	true },
+	{ "pll_p_out3",	"pll_p",	102000000,	true },
 	{ "pll_m_out1",	"pll_m",	275000000,	false },
 	{ "pll_p_out4",	"pll_p",	102000000,	true },
 	{ "sclk",	"pll_p_out4",	102000000,	true },
@@ -198,11 +198,13 @@ static __initdata struct tegra_clk_init_table common_clk_init_table[] = {
 #endif
 #else
 	{ "pll_p",	NULL,		216000000,	true },
-	{ "pll_p_out1",	"pll_p",	28800000,	false },
-	{ "pll_p_out2",	"pll_p",	48000000,	false },
+	{ "pll_p_out1",	"pll_p",	28800000,	true },
+	{ "pll_p_out2",	"pll_p",	48000000,	true },
 	{ "pll_p_out3",	"pll_p",	72000000,	true },
 	{ "pll_m_out1",	"pll_m",	275000000,	true },
-	{ "pll_p_out4",	"pll_p",	108000000,	false },
+	{ "pll_c",	NULL,		ULONG_MAX,	false },
+	{ "pll_c_out1",	"pll_c",	208000000,	false },
+	{ "pll_p_out4",	"pll_p",	108000000,	true },
 	{ "sclk",	"pll_p_out4",	108000000,	true },
 	{ "hclk",	"sclk",		108000000,	true },
 	{ "pclk",	"hclk",		54000000,	true },
@@ -212,6 +214,10 @@ static __initdata struct tegra_clk_init_table common_clk_init_table[] = {
 #else
 	{ "csite",      NULL,           0,              true },
 #endif
+	{ "emc",	NULL,		0,		true },
+	{ "cpu",	NULL,		0,		true },
+	{ "kfuse",	NULL,		0,		true },
+	{ "fuse",	NULL,		0,		true },
 	{ "pll_u",	NULL,		480000000,	false },
 	{ "sdmmc1",	"pll_p",	48000000,	false},
 	{ "sdmmc3",	"pll_p",	48000000,	false},

@@ -46,38 +46,34 @@ static int adam_wifi_reset(int on);
 static int adam_wifi_power(int on);
 static int adam_wifi_set_carddetect(int val);
 
+int g_wifi_set_carddetect=0;
+EXPORT_SYMBOL(g_wifi_set_carddetect);
+
 static struct wifi_platform_data adam_wifi_control = {
         .set_power      = adam_wifi_power,
         .set_reset      = adam_wifi_reset,
         .set_carddetect = adam_wifi_set_carddetect,
 };
 
+static struct resource wifi_resource[] = {
+	[0] = {
+		.name  = "bcmdhd_wlan_irq",
+		.start = TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PS0),
+		.end   = TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PS0),
+		.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
+	},
+};
 
 static struct platform_device adam_wifi_device = {
         .name           = "bcmdhd_wlan",
         .id             = 1,
+	.num_resources  = 1,
+	.resource	= wifi_resource,
         .dev            = {
                 .platform_data = &adam_wifi_control,
         },
 };
 
-
-/* 2.6.36 version has a hook to check card status. Use it */
-/*static unsigned int adam_wlan_status(struct device *dev)
-{
-	return adam_wlan_cd;
-}*/
-
-static int adam_wifi_status_register(
-		void (*callback)(int card_present, void *dev_id),
-		void *dev_id)
-{
-	if (wlan_status_cb)
-		return -EAGAIN;
-	wlan_status_cb = callback;
-	wlan_status_cb_devid = dev_id;
-	return 0;
-} 
 static struct embedded_sdio_data embedded_sdio_data0 = {
         .cccr   = {
                 .sdio_vsn       = 2,
@@ -93,26 +89,76 @@ static struct embedded_sdio_data embedded_sdio_data0 = {
         },
 };
 
-
 static unsigned int adam_wifi_status(struct device *dev)
 {
-	return adam_wlan_cd;
+        return adam_wlan_cd;
 }
 
-struct tegra_sdhci_platform_data adam_wlan_data = {
-//        .clk_id = NULL,
-//        .force_hs = 0,
+static struct tegra_sdhci_platform_data tegra_sdhci_platform_data1 = {
+	.clk_id = NULL,
+	.force_hs = 0,
 	.mmc_data = {
-        	.register_status_notify = adam_wifi_status_register,
+		.register_status_notify	= adam_wifi_status_register,
 		.embedded_sdio = &embedded_sdio_data0,
-		.built_in = 1,
+                .built_in = 1,
 		.status = adam_wifi_status,
 	},
+	.wow_gpio = ADAM_SDIO_WOW,
+	.cd_gpio = -1,
+	.wp_gpio = -1,
+	.power_gpio = -1,
+	.bus_width = 8,
+};
+
+static struct tegra_sdhci_platform_data tegra_sdhci_platform_data2 = {
 	.cd_gpio = -1,
 	.wp_gpio = -1,
 	.power_gpio = -1,
 	.has_no_vreg = 1,
 };
+
+static struct tegra_sdhci_platform_data tegra_sdhci_platform_data3 = {
+	.wow_gpio = -1,
+	.clk_id = NULL,
+	.force_hs = 1,
+	.cd_gpio = ADAM_SDHC_CD,
+	.wp_gpio = -1,
+	.power_gpio = ADAM_SDHC_POWER,
+	.bus_width = 4,
+};
+
+static struct tegra_sdhci_platform_data tegra_sdhci_platform_data4 = {
+	.clk_id = NULL,
+	.is_8bit = 1,
+	.wow_gpio = -1,
+	.cd_gpio = -1,
+	.wp_gpio = -1,
+	.power_gpio = TEGRA_GPIO_PI6,
+	.force_hs = 0,
+	.bus_width = 8,
+	.mmc_data = {
+		.built_in = 1,
+	}
+};
+
+static struct platform_device *adam_sdhci_devices[] __initdata = {
+	&tegra_sdhci_device1,
+//	&tegra_sdhci_device2,
+//have to init these out of order so that the eMMC card is registered first
+	&tegra_sdhci_device4,
+	&tegra_sdhci_device3,
+};
+
+static int adam_wifi_status_register(
+		void (*callback)(int card_present, void *dev_id),
+		void *dev_id)
+{
+	if (wlan_status_cb)
+		return -EAGAIN;
+	wlan_status_cb = callback;
+	wlan_status_cb_devid = dev_id;
+	return 0;
+} 
 
 /* Used to set the virtual CD of wifi adapter */
 int adam_wifi_set_carddetect(int val)
@@ -128,6 +174,7 @@ int adam_wifi_set_carddetect(int val)
 			wlan_status_cb(val, wlan_status_cb_devid);
 		} else
 			pr_info("%s: Nobody to notify\n", __func__);
+		g_wifi_set_carddetect = val;
 	}
 	return 0;
 }
@@ -151,47 +198,18 @@ static int adam_wifi_reset(int on)
         return 0;
 }
 
-
-static struct tegra_sdhci_platform_data tegra_sdhci_platform_data2 = {
-	.cd_gpio = -1,
-	.wp_gpio = -1,
-	.power_gpio = -1,
-	.has_no_vreg = 1,
-};
-
-static struct tegra_sdhci_platform_data tegra_sdhci_platform_data3 = {
-	.cd_gpio = ADAM_SDHC_CD,
-	.wp_gpio = -1,
-	.power_gpio = ADAM_SDHC_POWER,
-	.has_no_vreg = 1,
-};
-
-static struct tegra_sdhci_platform_data tegra_sdhci_platform_data4 = {
-	.cd_gpio = -1,
-	.wp_gpio = -1,
-	.power_gpio = -1,
-	.has_no_vreg = 1,
-	.is_8bit = 1,
-};
-
-
-
-static struct platform_device *adam_sdhci_devices[] __initdata = {
-	&tegra_sdhci_device1,
-//	&tegra_sdhci_device2,
-//have to init these out of order so that the eMMC card is registered first
-	&tegra_sdhci_device4,
-	&tegra_sdhci_device3,
-};
-
 static int __init adam_wifi_init(void)
 {
 	// Init the power GPIO if it isn't already
 	adam_bt_wifi_gpio_init();
         tegra_gpio_enable(ADAM_WLAN_RESET);
+	tegra_gpio_enable(ADAM_WLAN_WOW);
 
 	gpio_request(ADAM_WLAN_RESET, "wifi_reset");
         gpio_direction_output(ADAM_WLAN_RESET, 0);
+
+	gpio_request(ADAM_WLAN_WOW, "bcmsdh_sdmmc");
+	gpio_direction_input(ADAM_WLAN_WOW);
 
         platform_device_register(&adam_wifi_device);
 
@@ -206,14 +224,24 @@ static int __init adam_wifi_init(void)
 int __init adam_sdhci_register_devices(void)
 {
 	int ret=0;
-	/* Plug in platform data */
-	tegra_sdhci_device1.dev.platform_data = &adam_wlan_data;
-	tegra_sdhci_device2.dev.platform_data = &tegra_sdhci_platform_data2;
-	tegra_sdhci_device3.dev.platform_data = &tegra_sdhci_platform_data3;
-	tegra_sdhci_device4.dev.platform_data = &tegra_sdhci_platform_data4;
 
+        /* Plug in platform data */
+        tegra_sdhci_device1.dev.platform_data = &tegra_sdhci_platform_data1;
+        tegra_sdhci_device2.dev.platform_data = &tegra_sdhci_platform_data2;
+        tegra_sdhci_device3.dev.platform_data = &tegra_sdhci_platform_data3;
+        tegra_sdhci_device4.dev.platform_data = &tegra_sdhci_platform_data4;
+
+	tegra_gpio_enable(tegra_sdhci_platform_data3.power_gpio);
+	tegra_gpio_enable(tegra_sdhci_platform_data3.cd_gpio);
+	tegra_gpio_enable(tegra_sdhci_platform_data3.wp_gpio);
+	tegra_gpio_enable(tegra_sdhci_platform_data4.power_gpio);
+
+/*        platform_device_register(&tegra_sdhci_device4);
+	platform_device_register(&tegra_sdhci_device3);
+	//platform_device_register(&tegra_sdhci_device2);
+	platform_device_register(&tegra_sdhci_device1);*/
 	ret = platform_add_devices(adam_sdhci_devices, ARRAY_SIZE(adam_sdhci_devices));
+
 	adam_wifi_init();
 	return ret;
-
 }
