@@ -1055,7 +1055,7 @@ static const struct file_operations hid_debug_rdesc_fops = {
 };
 
 static const struct file_operations hid_debug_events_fops = {
-//	.owner =        THIS_MODULE,
+	.owner =        THIS_MODULE,
 	.open           = hid_debug_events_open,
 	.read           = hid_debug_events_read,
 	.poll		= hid_debug_events_poll,
