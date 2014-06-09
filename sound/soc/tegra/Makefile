@@ -2,6 +2,7 @@ GCOV_PROFILE := y
 
 # Tegra platform Support
 snd-soc-tegra-pcm-objs := tegra_pcm.o
+snd-soc-tegra-tdm-pcm-objs := tegra_tdm_pcm.o
 snd-soc-tegra20-spdif-objs := tegra20_spdif.o
 snd-soc-tegra-utils-objs += tegra_asoc_utils.o
 snd-soc-tegra20-das-objs := tegra20_das.o
@@ -13,6 +14,7 @@ snd-soc-tegra30-dam-objs := tegra30_dam.o
 
 obj-$(CONFIG_SND_SOC_TEGRA) += snd-soc-tegra-pcm.o
 obj-$(CONFIG_SND_SOC_TEGRA) += snd-soc-tegra-utils.o
+obj-$(CONFIG_SND_SOC_TEGRA) += snd-soc-tegra-tdm-pcm.o
 obj-$(CONFIG_SND_SOC_TEGRA20_DAS) += snd-soc-tegra20-das.o
 obj-$(CONFIG_SND_SOC_TEGRA20_I2S) += snd-soc-tegra20-i2s.o
 obj-$(CONFIG_SND_SOC_TEGRA30_AHUB) += snd-soc-tegra30-ahub.o
@@ -27,7 +29,6 @@ snd-soc-tegra-wm8753-objs := tegra_wm8753.o
 snd-soc-tegra-max98088-objs := tegra_max98088.o
 snd-soc-tegra-aic326x-objs := tegra_aic326x.o
 snd-soc-tegra-alc5623-objs := tegra_alc5623.o
-snd-soc-tegra-alc5623-objs := tegra_alc5623.o tegra_generic_codec.o
 
 obj-$(CONFIG_SND_SOC_TEGRA_WM8903) += snd-soc-tegra-wm8903.o
 obj-$(CONFIG_SND_SOC_TEGRA_WM8753) += snd-soc-tegra-wm8753.o
