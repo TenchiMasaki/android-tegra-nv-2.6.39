@@ -24,6 +24,11 @@ config VIDEOBUF_DMA_CONTIG
 	select VIDEOBUF_GEN
 	tristate
 
+config VIDEOBUF_DMA_NVMAP
+        depends on HAS_DMA
+        select VIDEOBUF_GEN
+        tristate
+
 config VIDEOBUF_DVB
 	tristate
 	select VIDEOBUF_GEN
@@ -66,6 +71,12 @@ config VIDEOBUF2_DMA_SG
 	select VIDEOBUF2_CORE
 	select VIDEOBUF2_MEMOPS
 	tristate
+
+config VIDEOBUF2_DMA_NVMAP
+	select VIDEOBUF2_CORE
+	select VIDEOBUF2_MEMOPS
+	tristate
+
 #
 # Multimedia Video device configuration
 #

@@ -665,7 +665,6 @@ static int s5k4cdgx_set_anti_flicker(struct s5k4cdgx *s5k4cdgx, int value)
 		//return ret;
 	}
 
-#if 0
 	if (value == V4L2_CID_POWER_LINE_FREQUENCY_AUTO) {
 		auto_alg |= AALG_FLICKER_EN_MASK;
 	} else {
@@ -679,7 +678,7 @@ static int s5k4cdgx_set_anti_flicker(struct s5k4cdgx *s5k4cdgx, int value)
 		if (ret)
 			return ret;
 	}
-#endif
+
 	return s5k4cdgx_write(client, REG_DBG_AUTOALG_EN, auto_alg);
 }
 
