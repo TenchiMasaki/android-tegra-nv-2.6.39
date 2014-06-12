@@ -260,6 +260,10 @@ config TEGRA_SYSTEM_DMA
 config KERNEL_OC_MODE
         bool "Enable overclocking ala clemsyn"
         default n
+	
+config TEGRA_LP1_950
+	bool "Enable low power mode"
+	default n
 
 config TEGRA_PWM
 	tristate "Enable PWM driver"
