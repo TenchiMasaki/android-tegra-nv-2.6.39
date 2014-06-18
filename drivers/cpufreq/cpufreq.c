@@ -418,21 +418,14 @@ static int cpufreq_parse_governor(char *str_governor, unsigned int *policy,
 		t = __find_governor(str_governor);
 
 		if (t == NULL) {
-			char *name = kasprintf(GFP_KERNEL, "cpufreq_%s",
-								str_governor);
+			int ret;
 
-			if (name) {
-				int ret;
+			mutex_unlock(&cpufreq_governor_mutex);
+			ret = request_module("cpufreq_%s", str_governor);
+			mutex_lock(&cpufreq_governor_mutex);
 
-				mutex_unlock(&cpufreq_governor_mutex);
-				ret = request_module("%s", name);
-				mutex_lock(&cpufreq_governor_mutex);
-
-				if (ret == 0)
-					t = __find_governor(str_governor);
-			}
-
-			kfree(name);
+			if (ret == 0)
+				t = __find_governor(str_governor);
 		}
 
 		if (t != NULL) {
@@ -1052,7 +1045,7 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 	if (cpu_is_offline(cpu))
 		return 0;
 
-	cpufreq_debug_disable_ratelimit();
+/*	cpufreq_debug_disable_ratelimit(); */
 	dprintk("adding CPU %u\n", cpu);
 
 #ifdef CONFIG_SMP
@@ -1061,7 +1054,7 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 	policy = cpufreq_cpu_get(cpu);
 	if (unlikely(policy)) {
 		cpufreq_cpu_put(policy);
-		cpufreq_debug_enable_ratelimit();
+/*		cpufreq_debug_enable_ratelimit(); */
 		return 0;
 	}
 #endif
@@ -1157,7 +1150,7 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 	kobject_uevent(&policy->kobj, KOBJ_ADD);
 	module_put(cpufreq_driver->owner);
 	dprintk("initialization complete\n");
-	cpufreq_debug_enable_ratelimit();
+/*	cpufreq_debug_enable_ratelimit(); */
 
 	return 0;
 
@@ -1181,7 +1174,7 @@ err_free_policy:
 nomem_out:
 	module_put(cpufreq_driver->owner);
 module_out:
-	cpufreq_debug_enable_ratelimit();
+/*	cpufreq_debug_enable_ratelimit(); */
 	return ret;
 }
 
@@ -1205,7 +1198,7 @@ static int __cpufreq_remove_dev(struct sys_device *sys_dev)
 	unsigned int j;
 #endif
 
-	cpufreq_debug_disable_ratelimit();
+/*	cpufreq_debug_disable_ratelimit(); */
 	dprintk("unregistering CPU %u\n", cpu);
 
 	spin_lock_irqsave(&cpufreq_driver_lock, flags);
@@ -1213,7 +1206,7 @@ static int __cpufreq_remove_dev(struct sys_device *sys_dev)
 
 	if (!data) {
 		spin_unlock_irqrestore(&cpufreq_driver_lock, flags);
-		cpufreq_debug_enable_ratelimit();
+/*		cpufreq_debug_enable_ratelimit(); */
 		unlock_policy_rwsem_write(cpu);
 		return -EINVAL;
 	}
@@ -1230,7 +1223,7 @@ static int __cpufreq_remove_dev(struct sys_device *sys_dev)
 		spin_unlock_irqrestore(&cpufreq_driver_lock, flags);
 		kobj = &sys_dev->kobj;
 		cpufreq_cpu_put(data);
-		cpufreq_debug_enable_ratelimit();
+/*		cpufreq_debug_enable_ratelimit(); */
 		unlock_policy_rwsem_write(cpu);
 		sysfs_remove_link(kobj, "cpufreq");
 		return 0;
@@ -1301,7 +1294,7 @@ static int __cpufreq_remove_dev(struct sys_device *sys_dev)
 		cpufreq_driver->exit(data);
 	unlock_policy_rwsem_write(cpu);
 
-	cpufreq_debug_enable_ratelimit();
+/*	cpufreq_debug_enable_ratelimit(); */
 
 #ifdef CONFIG_HOTPLUG_CPU
 	/* when the CPU which is the parent of the kobj is hotplugged
@@ -2139,7 +2132,7 @@ int cpufreq_register_driver(struct cpufreq_driver *driver_data)
 
 	register_hotcpu_notifier(&cpufreq_cpu_notifier);
 	dprintk("driver %s up and running\n", driver_data->name);
-	cpufreq_debug_enable_ratelimit();
+/*	cpufreq_debug_enable_ratelimit(); */
 
 	return 0;
 err_sysdev_unreg:
@@ -2166,10 +2159,10 @@ int cpufreq_unregister_driver(struct cpufreq_driver *driver)
 {
 	unsigned long flags;
 
-	cpufreq_debug_disable_ratelimit();
+/* 	cpufreq_debug_disable_ratelimit(); */
 
 	if (!cpufreq_driver || (driver != cpufreq_driver)) {
-		cpufreq_debug_enable_ratelimit();
+/*		cpufreq_debug_enable_ratelimit(); */
 		return -EINVAL;
 	}
 
@@ -2217,7 +2210,7 @@ static int __init cpufreq_core_init(void)
 	int cpu;
 	int rc;
 	
-#ifdef CONFIG_TEGRA_ENABLE_OC
+#ifdef CONFIG_KERNEL_OC_MODE
 	// Allocate some memory for the voltage tab
 	UV_mV_Ptr = kzalloc(sizeof(int)*(MAX_DVFS_FREQS), GFP_KERNEL); 
 #endif
