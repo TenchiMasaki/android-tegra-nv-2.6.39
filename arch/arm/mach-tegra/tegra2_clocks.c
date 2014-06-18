@@ -469,8 +469,6 @@ static int tegra2_cpu_clk_set_rate(struct clk *c, unsigned long rate)
 		pr_err("Failed to switch cpu to clock %s\n", c->u.cpu.main->name);
 		goto out;
 	}
-	
-	pr_info("%s on clock %lu\n", __func__, rate);
 
 out:
 	/* We can't parent the twd to directly to the CPU complex because
