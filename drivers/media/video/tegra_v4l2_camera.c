@@ -813,7 +813,7 @@ static void tegra_camera_work(struct work_struct *work)
 
 static void tegra_camera_activate(struct tegra_camera_dev *pcdev)
 {
-	nvhost_module_busy(nvhost_get_host(pcdev->ndev)->dev);
+	nvhost_module_busy(&(nvhost_get_host(pcdev->ndev)->mod));
 
 	/* Save current syncpt values. */
 	tegra_camera_save_syncpts(pcdev);
@@ -833,7 +833,7 @@ static void tegra_camera_deactivate(struct tegra_camera_dev *pcdev)
 
 	mutex_unlock(&pcdev->work_mutex);
 
-	nvhost_module_idle(nvhost_get_host(pcdev->ndev)->dev);
+	nvhost_module_idle(&(nvhost_get_host(pcdev->ndev)->mod));
 }
 
 static void tegra_camera_init_buffer(struct tegra_camera_dev *pcdev,
