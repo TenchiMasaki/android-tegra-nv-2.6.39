@@ -28,6 +28,7 @@
 #include <linux/memblock.h>
 #include <linux/device.h>
 
+
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/time.h>
@@ -42,7 +43,6 @@
 #include <mach/irqs.h>
 #include <mach/nand.h>
 #include <mach/iomap.h>
-#include <linux/i2c.h>
 
 #include "board.h"
 #include "board-adam.h"
