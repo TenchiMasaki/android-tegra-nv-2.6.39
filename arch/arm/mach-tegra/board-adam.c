@@ -458,7 +458,7 @@ static void __init tegra_adam_init(void)
 	/* Register Bluetooth powermanagement devices */
 	smba_setup_bluesleep();
 	adam_gps_mag_init();
-	adam_gps_mag_poweron();
+/*	adam_gps_mag_poweron(); */
 	tegra_release_bootloader_fb();
 #if 0
 	/* Finally, init the external memory controller and memory frequency scaling
