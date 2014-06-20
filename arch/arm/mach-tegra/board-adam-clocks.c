@@ -68,7 +68,9 @@ static __initdata struct tegra_clk_init_table adam_clk_init_table[] = {
 	{ "clk_32k",		NULL,			32768,		true},		/* always on */
 	{ "rtc",		"clk_32k",			32768,		true},		/* rtc-tegra : must be always on */
 	{ "blink",		"clk_32k",			32768,		false},		/* used for bluetooth */
+	{ "pwm",	"clk_32k",		 32768,		false},
 	/* Master clock */
+	{ "pll_p_out4",	"pll_p",  24000000,		true },
 	{ "sdmmc2",		"pll_p",		48000000,	false},		/* sdhci-tegra.1 */
 	{ "pwm",		"clk_m",		12000000,	true},		/* tegra-pwm.0 tegra-pwm.1 tegra-pwm.2 tegra-pwm.3*/
 	{ "cdev1",		NULL,			0,		true},
