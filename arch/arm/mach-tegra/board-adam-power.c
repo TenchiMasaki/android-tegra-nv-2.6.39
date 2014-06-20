@@ -76,6 +76,7 @@ static struct regulator_consumer_supply tps658621_ldo3_supply[] = {
 	REGULATOR_SUPPLY("avdd_usb", NULL),
 	REGULATOR_SUPPLY("avdd_usb_pll", NULL),
 	REGULATOR_SUPPLY("vmmc", NULL),
+	REGULATOR_SUPPLY("avdd_lvds", NULL),
 };
 static struct regulator_consumer_supply tps658621_ldo4_supply[] = {
 	REGULATOR_SUPPLY("vdd_ldo4", NULL),
@@ -88,6 +89,7 @@ static struct regulator_consumer_supply tps658621_ldo5_supply[] = {
 static struct regulator_consumer_supply tps658621_ldo6_supply[] = {
 	REGULATOR_SUPPLY("vdd_ldo6", NULL),
 //	REGULATOR_SUPPLY("vcsi", "tegra_camera"),
+	REGULATOR_SUPPLY("vdd_i2c", "3-0030"),
 	REGULATOR_SUPPLY("avdd_vdac", NULL),
 };
 static struct regulator_consumer_supply tps658621_ldo7_supply[] = {
@@ -105,6 +107,7 @@ static struct regulator_consumer_supply tps658621_ldo9_supply[] = {
 	REGULATOR_SUPPLY("vdd_ddr_rx", NULL),
 	REGULATOR_SUPPLY("vddio_vi", NULL),
 	REGULATOR_SUPPLY("vcsi",NULL),
+	REGULATOR_SUPPLY("avdd_amp", NULL),
 };
 
 /* Super power voltage rail for the SOC : VDD SOC
@@ -330,11 +333,11 @@ static struct tegra_suspend_platform_data adam_suspend_data = {
 	 * Check power on time and crystal oscillator start time
 	 * for appropriate settings.
 	 */
-	.cpu_timer	= 3000,
-	.cpu_off_timer	= 1500,
-	.suspend_mode	= TEGRA_SUSPEND_LP1,
+	.cpu_timer	= 2000,
+	.cpu_off_timer	= 100,
+    .suspend_mode   = TEGRA_SUSPEND_LP0,
 	.core_timer	= 0x7e7e,
-	.core_off_timer = 0x7f,
+	.core_off_timer = 0xf,
 	.corereq_high	= false,
 	.sysclkreq_high	= true,
 	.board_suspend = adam_board_suspend,

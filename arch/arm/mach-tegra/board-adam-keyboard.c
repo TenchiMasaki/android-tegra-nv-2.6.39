@@ -56,8 +56,8 @@ static struct gpio_keys_button adam_keys[] = {
 	[2] = {
 		.gpio = ADAM_KEY_POWER,
 		.active_low = true,
-		.debounce_interval = 50,
-		.wakeup = true,
+		.debounce_interval = 10,
+		.wakeup = false,
 		.code = KEY_POWER,
 		.type = EV_KEY,
 		.desc = "power",
@@ -86,7 +86,7 @@ static int adam_wakeup_key(void)
 static struct gpio_keys_platform_data adam_keys_platform_data = {
 	.buttons 	= adam_keys,
 	.nbuttons 	= ARRAY_SIZE(adam_keys),
-	.rep		= false, /* auto repeat enabled */
+/*	.rep		= false, */ /* auto repeat enabled */
 	.wakeup_key	= adam_wakeup_key,
 };
 
